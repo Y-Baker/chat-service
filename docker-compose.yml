@@ -5,6 +5,8 @@ services:
       - "3000:3000"
     environment:
       PORT: ${PORT:-3000}
+      NODE_ENV: ${NODE_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       MONGODB_URI: ${MONGODB_URI:-mongodb://chat-mongo:27017/chat-service}
       REDIS_URL: ${REDIS_URL:-redis://chat-redis:6379}
       AUTH_SECRET: ${AUTH_SECRET}
