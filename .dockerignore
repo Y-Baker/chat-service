@@ -1,0 +1,24 @@
+# Docker
+dist/
+node_modules/
+npm-debug.log
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local
+
+# Test
+coverage/
+test/
+
+# Documentation (optional)
+docs/
+*.md
