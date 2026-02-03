@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
 import { LoggerModule } from 'nestjs-pino';
 
 import { AppConfigModule } from './config/config.module';
+import { MongoDBModule } from './database/mongodb.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
 import { AppController } from './app.controller';
@@ -32,26 +31,7 @@ import { AppService } from './app.service';
       },
     }),
     AppConfigModule,
-    MongooseModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        uri: configService.getOrThrow<string>('mongodb.uri'),
-        retryAttempts: 3,
-        retryDelay: 1000,
-        connectionFactory: (connection) => {
-          connection.on('connected', () => {
-            console.log('✅ MongoDB connected successfully');
-          });
-          connection.on('disconnected', () => {
-            console.warn('⚠️  MongoDB disconnected');
-          });
-          connection.on('error', (error) => {
-            console.error('❌ MongoDB connection error:', error.message);
-          });
-          return connection;
-        },
-      }),
-    }),
+    MongoDBModule,
     RedisModule,
     HealthModule,
   ],

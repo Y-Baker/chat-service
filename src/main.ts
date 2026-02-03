@@ -5,10 +5,10 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
-  
+
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  
+
   const logger = app.get(Logger);
   logger.log(`🚀 Application is running on: http://localhost:${port}`);
 }
