@@ -48,6 +48,9 @@ export class Conversation {
 
   @Prop({ type: LastMessageSchema })
   lastMessage?: LastMessage;
+
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);

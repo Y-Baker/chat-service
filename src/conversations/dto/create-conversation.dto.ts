@@ -26,11 +26,11 @@ class ParticipantCountConstraint implements ValidatorConstraintInterface {
     }
 
     if (dto.type === ConversationType.Direct) {
-      return value.length === 1;
+      return value.length === 2;
     }
 
     if (dto.type === ConversationType.Group) {
-      return value.length >= 1;
+      return value.length >= 2;
     }
 
     return true;
@@ -39,9 +39,9 @@ class ParticipantCountConstraint implements ValidatorConstraintInterface {
   defaultMessage(args: ValidationArguments): string {
     const dto = args.object as CreateConversationDto;
     if (dto.type === ConversationType.Direct) {
-      return 'participantIds must include exactly 1 user for direct conversations';
+      return 'participantIds must include exactly 2 users for direct conversations';
     }
-    return 'participantIds must include at least 1 user';
+    return 'participantIds must include at least 2 users';
   }
 }
 
@@ -56,7 +56,7 @@ export class CreateConversationDto {
   name?: string;
 
   @IsArray()
-  @ArrayMinSize(1)
+  @ArrayMinSize(2)
   @ArrayMaxSize(50)
   @ArrayUnique()
   @IsString({ each: true })

@@ -10,8 +10,8 @@ export class Participant {
   @Prop({ required: true })
   externalUserId!: string;
 
-  @Prop({ required: true, enum: ParticipantRole })
-  role!: ParticipantRole;
+  @Prop({ enum: ParticipantRole })
+  role?: ParticipantRole;
 
   @Prop({ required: true })
   joinedAt!: Date;

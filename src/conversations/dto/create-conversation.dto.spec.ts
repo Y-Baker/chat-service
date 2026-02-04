@@ -5,10 +5,10 @@ import { CreateConversationDto } from './create-conversation.dto';
 import { ConversationType } from '../schemas/conversation.schema';
 
 describe('CreateConversationDto', () => {
-  it('allows direct with exactly one participant', async () => {
+  it('allows direct with exactly two participants', async () => {
     const dto = plainToInstance(CreateConversationDto, {
       type: ConversationType.Direct,
-      participantIds: ['user-1'],
+      participantIds: ['user-1', 'user-2'],
     });
 
     const errors = await validate(dto);
@@ -16,10 +16,10 @@ describe('CreateConversationDto', () => {
     expect(errors).toHaveLength(0);
   });
 
-  it('rejects direct with more than one participant', async () => {
+  it('rejects direct with more than two participants', async () => {
     const dto = plainToInstance(CreateConversationDto, {
       type: ConversationType.Direct,
-      participantIds: ['user-1', 'user-2'],
+      participantIds: ['user-1', 'user-2', 'user-3'],
     });
 
     const errors = await validate(dto);
@@ -31,7 +31,7 @@ describe('CreateConversationDto', () => {
     const dto = plainToInstance(CreateConversationDto, {
       type: ConversationType.Group,
       name: 'Project Team',
-      participantIds: ['user-1', 'user-2'],
+      participantIds: ['user-1', 'user-2', 'user-3'],
     });
 
     const errors = await validate(dto);
@@ -42,7 +42,7 @@ describe('CreateConversationDto', () => {
   it('rejects group without name', async () => {
     const dto = plainToInstance(CreateConversationDto, {
       type: ConversationType.Group,
-      participantIds: ['user-1'],
+      participantIds: ['user-1', 'user-2'],
     });
 
     const errors = await validate(dto);
