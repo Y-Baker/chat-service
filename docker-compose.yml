@@ -2,14 +2,21 @@ services:
   chat-service:
     build: .
     ports:
-      - "3000:3000"
+      - "3000:3000"  # REST API (internal, master calls this)
+      - "3001:3001"  # WebSocket (public, frontend connects directly)
     environment:
       PORT: ${PORT:-3000}
+      WS_PORT: ${WS_PORT:-3001}
       NODE_ENV: ${NODE_ENV:-production}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MONGODB_URI: ${MONGODB_URI:-mongodb://chat-mongo:27017/chat-service}
       REDIS_URL: ${REDIS_URL:-redis://chat-redis:6379}
-      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-master-service}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      WEBHOOK_URL: ${WEBHOOK_URL}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
     depends_on:
       chat-mongo:
         condition: service_started

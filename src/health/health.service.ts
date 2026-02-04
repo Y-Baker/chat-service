@@ -19,6 +19,7 @@ export class HealthService {
     return {
       status: isHealthy ? 'ok' : 'degraded',
       timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
       services: {
         mongodb: {
           status: mongodb.status === 'fulfilled' ? 'up' : 'down',
