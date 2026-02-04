@@ -25,6 +25,3 @@ export class UserProfile {
 }
 
 export const UserProfileSchema = SchemaFactory.createForClass(UserProfile);
-
-UserProfileSchema.index({ externalUserId: 1 }, { unique: true });
-UserProfileSchema.index({ isActive: 1 });
