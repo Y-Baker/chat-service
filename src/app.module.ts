@@ -5,11 +5,21 @@ import { AppLoggerModule } from './logger/logger.module';
 import { MongoDBModule } from './database/mongodb.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthModule } from './health/health.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 @Module({
-  imports: [AppLoggerModule, AppConfigModule, MongoDBModule, RedisModule, HealthModule],
+  imports: [
+    AppLoggerModule,
+    AppConfigModule,
+    MongoDBModule,
+    RedisModule,
+    HealthModule,
+    AuthModule,
+    UsersModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
