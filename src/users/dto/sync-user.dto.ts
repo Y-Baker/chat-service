@@ -3,12 +3,12 @@ import { IsNotEmpty, IsObject, IsOptional, IsString, IsUrl, MaxLength } from 'cl
 export class SyncUserDto {
   @IsString()
   @IsNotEmpty()
-  externalUserId: string;
+  externalUserId!: string;
 
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  displayName: string;
+  displayName!: string;
 
   @IsOptional()
   @IsUrl()

@@ -6,10 +6,10 @@ export type UserProfileDocument = HydratedDocument<UserProfile>;
 @Schema({ timestamps: true })
 export class UserProfile {
   @Prop({ required: true, unique: true, index: true })
-  externalUserId: string;
+  externalUserId!: string;
 
   @Prop({ required: true })
-  displayName: string;
+  displayName!: string;
 
   @Prop()
   avatarUrl?: string;
@@ -18,10 +18,10 @@ export class UserProfile {
   metadata?: Record<string, unknown>;
 
   @Prop({ default: true, index: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @Prop({ required: true })
-  syncedAt: Date;
+  syncedAt!: Date;
 }
 
 export const UserProfileSchema = SchemaFactory.createForClass(UserProfile);

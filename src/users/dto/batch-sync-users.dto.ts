@@ -7,5 +7,5 @@ export class BatchSyncUsersDto {
   @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => SyncUserDto)
-  users: SyncUserDto[];
+  users!: SyncUserDto[];
 }

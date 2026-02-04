@@ -29,7 +29,7 @@ Best for: production, using managed databases (MongoDB Atlas, AWS ElastiCache)
 ```bash
 export MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/chat-service
 export REDIS_URL=redis://my-redis.cache.amazonaws.com:6379
-export AUTH_SECRET=your-secure-secret-key-at-least-32-characters-long
+export AUTH_JWT_SECRET=your-secure-secret-key-at-least-32-characters-long
 ```
 
 2. Run without database profile:
