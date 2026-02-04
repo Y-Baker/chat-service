@@ -357,6 +357,12 @@ export class ConversationsService {
       .exec();
   }
 
+  async clearLastMessage(conversationId: string): Promise<void> {
+    await this.conversationModel
+      .findByIdAndUpdate(conversationId, { $unset: { lastMessage: 1 } })
+      .exec();
+  }
+
   async isParticipant(conversationId: string, userId: string): Promise<boolean> {
     const exists = await this.conversationModel.exists({
       _id: conversationId,

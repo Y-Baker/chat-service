@@ -1,4 +1,94 @@
-import { Controller } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
+import { ConversationsService } from '../conversations/conversations.service';
+import { EditMessageDto } from './dto/edit-message.dto';
+import { QueryMessagesDto } from './dto/query-messages.dto';
+import { SendMessageDto } from './dto/send-message.dto';
+import {
+  MessagesService,
+  MessageWithSender,
+  MessageWithSenderAndReply,
+} from './messages.service';
 
-@Controller('api/messages')
-export class MessagesController {}
+@Controller('api')
+@UseGuards(JwtAuthGuard)
+export class MessagesController {
+  constructor(
+    private readonly messagesService: MessagesService,
+    private readonly conversationsService: ConversationsService,
+  ) {}
+
+  @Post('conversations/:conversationId/messages')
+  async send(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('conversationId') conversationId: string,
+    @Body() dto: SendMessageDto,
+  ): Promise<MessageWithSender | MessageWithSenderAndReply> {
+    const message = await this.messagesService.send(conversationId, user.externalUserId, dto);
+
+    if (dto.replyTo) {
+      return this.messagesService.populateReplyPreview(message);
+    }
+
+    return message;
+  }
+
+  @Get('conversations/:conversationId/messages')
+  async list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('conversationId') conversationId: string,
+    @Query() query: QueryMessagesDto,
+  ) {
+    await this.conversationsService.findByIdForUser(conversationId, user.externalUserId);
+    return this.messagesService.findByConversation(conversationId, query);
+  }
+
+  @Get('messages/:id')
+  async findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<MessageWithSenderAndReply> {
+    const message = await this.messagesService.findById(id);
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    await this.conversationsService.findByIdForUser(
+      message.conversationId.toString(),
+      user.externalUserId,
+    );
+
+    const populated = await this.messagesService.populateMessageWithSender(message);
+    return this.messagesService.populateReplyPreview(populated);
+  }
+
+  @Patch('messages/:id')
+  async edit(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: EditMessageDto,
+  ): Promise<MessageWithSender> {
+    return this.messagesService.edit(id, user.externalUserId, dto);
+  }
+
+  @Delete('messages/:id')
+  async remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<{ deleted: true }> {
+    return this.messagesService.delete(id, user.externalUserId);
+  }
+}
