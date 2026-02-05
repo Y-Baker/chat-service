@@ -146,6 +146,9 @@ describe('WebSocket gateway (e2e)', () => {
   });
 
   beforeEach(async () => {
+    if (redisClient && (redisClient as any).flushdb) {
+      await (redisClient as any).flushdb();
+    }
     await connection.dropDatabase();
     await syncUser(USER_1);
     await syncUser(USER_2);
@@ -486,6 +489,64 @@ describe('WebSocket gateway (e2e)', () => {
 
     expect(sync.success).toBe(true);
     expect(sync.messages).toHaveLength(0);
+
+    socket.disconnect();
+  });
+
+  it('broadcasts typing and recording indicators', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const socket1 = await connectSocket(signToken(USER_1.externalUserId));
+    const socket2 = await connectSocket(signToken(USER_2.externalUserId));
+
+    const typingStart = waitForEvent<any>(socket1, 'user:typing');
+    const typingAck = await emitWithAck<any>(socket2, 'typing:start', {
+      conversationId: conversation._id,
+    });
+    expect(typingAck.success).toBe(true);
+    const typingPayload = await typingStart;
+    expect(typingPayload.userId).toBe(USER_2.externalUserId);
+    expect(typingPayload.isActive).toBe(true);
+
+    const typingStop = waitForEvent<any>(socket1, 'user:typing');
+    const stopAck = await emitWithAck<any>(socket2, 'typing:stop', {
+      conversationId: conversation._id,
+    });
+    expect(stopAck.success).toBe(true);
+    const stopPayload = await typingStop;
+    expect(stopPayload.userId).toBe(USER_2.externalUserId);
+    expect(stopPayload.isActive).toBe(false);
+
+    const recordingStart = waitForEvent<any>(socket1, 'user:recording');
+    const recAck = await emitWithAck<any>(socket2, 'recording:start', {
+      conversationId: conversation._id,
+    });
+    expect(recAck.success).toBe(true);
+    const recPayload = await recordingStart;
+    expect(recPayload.userId).toBe(USER_2.externalUserId);
+    expect(recPayload.isActive).toBe(true);
+
+    const recordingStop = waitForEvent<any>(socket1, 'user:recording');
+    const recStopAck = await emitWithAck<any>(socket2, 'recording:stop', {
+      conversationId: conversation._id,
+    });
+    expect(recStopAck.success).toBe(true);
+    const recStopPayload = await recordingStop;
+    expect(recStopPayload.userId).toBe(USER_2.externalUserId);
+    expect(recStopPayload.isActive).toBe(false);
+
+    socket1.disconnect();
+    socket2.disconnect();
+  });
+
+  it('acks activity:ping', async () => {
+    const socket = await connectSocket(signToken(USER_1.externalUserId));
+
+    const ack = await emitWithAck<any>(socket, 'activity:ping', {});
+    expect(ack.success).toBe(true);
 
     socket.disconnect();
   });

@@ -140,6 +140,9 @@ describe('Messages flow (e2e)', () => {
   });
 
   beforeEach(async () => {
+    if (redisClient && (redisClient as any).flushdb) {
+      await (redisClient as any).flushdb();
+    }
     await connection.dropDatabase();
     await syncUser(USER_1);
     await syncUser(USER_2);
@@ -850,6 +853,63 @@ describe('Messages flow (e2e)', () => {
     expect(sync.messages.some((msg: any) => msg._id === second.body._id)).toBe(true);
 
     socket.disconnect();
+  });
+
+  it('returns presence status and batch presence', async () => {
+    const socket = await connectSocket(signToken(USER_1.externalUserId));
+
+    const presence = await request(app.getHttpServer())
+      .get(`/api/users/${USER_1.externalUserId}/presence`)
+      .set(authHeader(USER_2.externalUserId))
+      .expect(200);
+
+    expect(presence.body.userId).toBe(USER_1.externalUserId);
+    expect(presence.body.status).toBe('online');
+    expect(presence.body.lastActivity).toBeTruthy();
+
+    const batch = await request(app.getHttpServer())
+      .post('/api/presence/batch')
+      .set(authHeader(USER_2.externalUserId))
+      .send({ userIds: [USER_1.externalUserId, USER_3.externalUserId] })
+      .expect(201);
+
+    const byId = new Map(
+      batch.body.presences.map((p: { userId: string }) => [p.userId, p]),
+    );
+
+    expect(byId.get(USER_1.externalUserId)?.status).toBe('online');
+    expect(byId.get(USER_3.externalUserId)?.status).toBe('offline');
+
+    socket.disconnect();
+  });
+
+  it('returns conversation presence with typing and recording indicators', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const socket1 = await connectSocket(signToken(USER_1.externalUserId));
+    const socket2 = await connectSocket(signToken(USER_2.externalUserId));
+
+    await new Promise((resolve) => {
+      socket1.emit('typing:start', { conversationId: conversation._id }, () => resolve(true));
+    });
+    await new Promise((resolve) => {
+      socket2.emit('recording:start', { conversationId: conversation._id }, () => resolve(true));
+    });
+
+    const presence = await request(app.getHttpServer())
+      .get(`/api/conversations/${conversation._id}/presence`)
+      .set(authHeader(USER_1.externalUserId))
+      .expect(200);
+
+    expect(presence.body.conversationId).toBe(conversation._id);
+    expect(presence.body.typingUsers).toContain(USER_1.externalUserId);
+    expect(presence.body.recordingUsers).toContain(USER_2.externalUserId);
+
+    socket1.disconnect();
+    socket2.disconnect();
   });
 
   afterAll(async () => {
