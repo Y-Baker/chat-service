@@ -80,6 +80,33 @@ describe('WebSocket gateway (e2e)', () => {
       });
     });
 
+  const waitForEvent = <T>(socket: Socket, event: string, timeoutMs = 5000) =>
+    new Promise<T>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`Timed out waiting for ${event}`));
+      }, timeoutMs);
+      socket.once(event, (payload: T) => {
+        clearTimeout(timeout);
+        resolve(payload);
+      });
+    });
+
+  const emitWithAck = <T>(
+    socket: Socket,
+    event: string,
+    payload: unknown,
+    timeoutMs = 5000,
+  ) =>
+    new Promise<T>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`Timed out waiting for ack on ${event}`));
+      }, timeoutMs);
+      socket.emit(event, payload, (response: T) => {
+        clearTimeout(timeout);
+        resolve(response);
+      });
+    });
+
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
     process.env.MONGODB_URI = mongoUri;
@@ -151,9 +178,10 @@ describe('WebSocket gateway (e2e)', () => {
       reconnection: false,
     });
 
-    const error = await new Promise<{ code: string }>((resolve) => {
-      badSocket.on('error', (payload) => resolve(payload));
-    });
+    const error = await Promise.race([
+      waitForEvent<{ code: string }>(badSocket, 'error'),
+      waitForEvent<{ code: string }>(badSocket, 'connect_error'),
+    ]);
 
     expect(error.code).toBe('UNAUTHORIZED');
     badSocket.disconnect();
@@ -168,25 +196,18 @@ describe('WebSocket gateway (e2e)', () => {
     const socket1 = await connectSocket(signToken(USER_1.externalUserId));
     const socket2 = await connectSocket(signToken(USER_2.externalUserId));
 
-    const received = new Promise<any>((resolve) => {
-      socket2.once('message:new', (message) => resolve(message));
-    });
+    const received = waitForEvent<any>(socket2, 'message:new');
 
-    const ack = await new Promise<any>((resolve) => {
-      socket1.emit(
-        'message:send',
-        { conversationId: conversation._id, content: 'Hi from WS' },
-        (response: any) => resolve(response),
-      );
+    const ack = await emitWithAck<any>(socket1, 'message:send', {
+      conversationId: conversation._id,
+      content: 'Hi from WS',
     });
 
     expect(ack.success).toBe(true);
     const message = await received;
     expect(message.content).toBe('Hi from WS');
 
-    const receivedRest = new Promise<any>((resolve) => {
-      socket2.once('message:new', (payload) => resolve(payload));
-    });
+    const receivedRest = waitForEvent<any>(socket2, 'message:new');
 
     await request(app.getHttpServer())
       .post(`/api/conversations/${conversation._id}/messages`)
@@ -221,16 +242,161 @@ describe('WebSocket gateway (e2e)', () => {
       .send({ content: 'Second' })
       .expect(201);
 
-    const sync = await new Promise<any>((resolve) => {
-      socket.emit(
-        'messages:sync',
-        { conversationId: conversation._id, lastMessageId: first.body._id },
-        (response: any) => resolve(response),
-      );
+    const sync = await emitWithAck<any>(socket, 'messages:sync', {
+      conversationId: conversation._id,
+      lastMessageId: first.body._id,
     });
 
     expect(sync.success).toBe(true);
     expect(sync.messages.some((msg: any) => msg._id === second.body._id)).toBe(true);
+
+    socket.disconnect();
+  });
+
+  it('handles room:join and room:leave for participants', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const socket = await connectSocket(signToken(USER_1.externalUserId));
+
+    const joinAck = await emitWithAck<any>(socket, 'room:join', {
+      conversationId: conversation._id,
+    });
+    expect(joinAck.success).toBe(true);
+
+    const leaveAck = await emitWithAck<any>(socket, 'room:leave', {
+      conversationId: conversation._id,
+    });
+    expect(leaveAck.success).toBe(true);
+
+    socket.disconnect();
+  });
+
+  it('broadcasts user:online and user:offline', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const socket1 = await connectSocket(signToken(USER_1.externalUserId));
+
+    const onlineEvent = waitForEvent<any>(socket1, 'user:online');
+
+    const socket2 = await connectSocket(signToken(USER_2.externalUserId));
+    const onlinePayload = await onlineEvent;
+    expect(onlinePayload.userId).toBe(USER_2.externalUserId);
+    expect(onlinePayload.conversationId).toBe(conversation._id);
+
+    const offlineEvent = waitForEvent<any>(socket1, 'user:offline');
+
+    socket2.disconnect();
+    const offlinePayload = await offlineEvent;
+    expect(offlinePayload.userId).toBe(USER_2.externalUserId);
+    expect(offlinePayload.conversationId).toBe(conversation._id);
+
+    socket1.disconnect();
+  });
+
+  it('broadcasts message:updated and message:deleted', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const socket1 = await connectSocket(signToken(USER_1.externalUserId));
+    const socket2 = await connectSocket(signToken(USER_2.externalUserId));
+
+    const sendAck = await emitWithAck<any>(socket1, 'message:send', {
+      conversationId: conversation._id,
+      content: 'Edit me',
+    });
+
+    const messageId = sendAck.message?._id;
+    expect(messageId).toBeDefined();
+
+    const updatedEvent = waitForEvent<any>(socket2, 'message:updated');
+
+    await emitWithAck<any>(socket1, 'message:edit', { messageId, content: 'Edited' });
+
+    const updatedPayload = await updatedEvent;
+    expect(updatedPayload.messageId).toBe(messageId);
+    expect(updatedPayload.content).toBe('Edited');
+
+    const deletedEvent = waitForEvent<any>(socket2, 'message:deleted');
+
+    await emitWithAck<any>(socket1, 'message:delete', { messageId });
+
+    const deletedPayload = await deletedEvent;
+    expect(deletedPayload.messageId).toBe(messageId);
+    expect(deletedPayload.conversationId).toBe(conversation._id);
+
+    socket1.disconnect();
+    socket2.disconnect();
+  });
+
+  it('rejects room:join for non-participants', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const socket = await connectSocket(signToken('user-3'));
+
+    socket.emit('room:join', { conversationId: conversation._id });
+    const error = await Promise.race([
+      waitForEvent<any>(socket, 'error'),
+      waitForEvent<any>(socket, 'exception'),
+    ]);
+
+    const errorCode = error?.code ?? error?.error?.code;
+    const errorMessage = error?.message ?? error?.error?.message;
+    expect(errorCode === 'FORBIDDEN' || /forbidden/i.test(errorMessage ?? '')).toBe(true);
+    socket.disconnect();
+  });
+
+  it('rejects message:send for non-participants', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const socket = await connectSocket(signToken('user-3'));
+
+    socket.emit('message:send', { conversationId: conversation._id, content: 'Nope' });
+    const error = await Promise.race([
+      waitForEvent<any>(socket, 'error'),
+      waitForEvent<any>(socket, 'exception'),
+    ]);
+
+    const errorCode = error?.code ?? error?.error?.code;
+    const errorMessage = error?.message ?? error?.error?.message;
+    expect(errorCode === 'FORBIDDEN' || /forbidden/i.test(errorMessage ?? '')).toBe(true);
+    socket.disconnect();
+  });
+
+  it('messages:sync returns empty when no new messages', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const socket = await connectSocket(signToken(USER_1.externalUserId));
+
+    const last = await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'Only message' })
+      .expect(201);
+
+    const sync = await emitWithAck<any>(socket, 'messages:sync', {
+      conversationId: conversation._id,
+      lastMessageId: last.body._id,
+    });
+
+    expect(sync.success).toBe(true);
+    expect(sync.messages).toHaveLength(0);
 
     socket.disconnect();
   });
