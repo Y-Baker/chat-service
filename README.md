@@ -87,7 +87,3 @@ Potential future phases:
 **Phase 14: Threads**
 - Threaded replies
 - Thread notifications
-
----
-
-Congratulations on completing the chat service.
