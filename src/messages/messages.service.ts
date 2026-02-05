@@ -12,6 +12,8 @@ import { ConversationsService } from '../conversations/conversations.service';
 import { UsersService } from '../users/users.service';
 import { ChatGateway } from '../gateway/chat.gateway';
 import { PresenceService } from '../presence/presence.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
+import { WebhookEventType } from '../webhooks/enums/webhook-event-type.enum';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { QueryMessagesDto } from './dto/query-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -67,6 +69,7 @@ export class MessagesService {
     private readonly chatGateway?: ChatGateway,
     @Inject(forwardRef(() => PresenceService))
     private readonly presenceService?: PresenceService,
+    private readonly webhooksService?: WebhooksService,
   ) {}
 
   async send(conversationId: string, senderId: string, dto: SendMessageDto): Promise<MessageWithSender> {
@@ -115,6 +118,16 @@ export class MessagesService {
     const populatedForSender = await this.populateMessageWithSender(message, senderId);
     const broadcastPayload = await this.populateMessageWithSender(message);
     this.chatGateway?.emitToConversation(conversationId, 'message:new', broadcastPayload);
+    await this.webhooksService?.emitEvent(WebhookEventType.MESSAGE_CREATED, {
+      messageId: message._id.toString(),
+      conversationId,
+      conversationType: conversation.type,
+      senderId: message.senderId,
+      content: message.content,
+      contentPreview: this.truncateContent(message.content, 100),
+      createdAt: message.createdAt ?? new Date(),
+      type: message.type,
+    });
     await this.presenceService?.updateActivity(senderId);
     return populatedForSender;
   }
@@ -147,6 +160,15 @@ export class MessagesService {
 
     const populated = await this.populateMessageWithSender(message);
     this.chatGateway?.emitToConversation(conversationId, 'message:new', populated);
+    await this.webhooksService?.emitEvent(WebhookEventType.MESSAGE_CREATED, {
+      messageId: message._id.toString(),
+      conversationId,
+      senderId: message.senderId,
+      content: message.content,
+      contentPreview: this.truncateContent(message.content, 100),
+      createdAt: message.createdAt ?? new Date(),
+      type: message.type,
+    });
     return populated;
   }
 
@@ -243,6 +265,14 @@ export class MessagesService {
       isEdited: message.isEdited,
       updatedAt: message.updatedAt,
     });
+    await this.webhooksService?.emitEvent(WebhookEventType.MESSAGE_UPDATED, {
+      messageId: message._id.toString(),
+      conversationId: message.conversationId.toString(),
+      senderId: message.senderId,
+      content: message.content,
+      contentPreview: this.truncateContent(message.content, 100),
+      updatedAt: message.updatedAt ?? new Date(),
+    });
     await this.presenceService?.updateActivity(userId);
 
     return populated;
@@ -272,6 +302,12 @@ export class MessagesService {
       conversationId: message.conversationId.toString(),
       deletedAt: message.deletedAt.toISOString(),
     });
+    await this.webhooksService?.emitEvent(WebhookEventType.MESSAGE_DELETED, {
+      messageId: message._id.toString(),
+      conversationId: message.conversationId.toString(),
+      senderId: message.senderId,
+      deletedAt: message.deletedAt,
+    });
     await this.presenceService?.updateActivity(userId);
 
     return { deleted: true };
@@ -291,6 +327,12 @@ export class MessagesService {
       messageId: message._id.toString(),
       conversationId,
       deletedAt: new Date().toISOString(),
+    });
+    await this.webhooksService?.emitEvent(WebhookEventType.MESSAGE_DELETED, {
+      messageId: message._id.toString(),
+      conversationId,
+      senderId: message.senderId,
+      deletedAt: new Date(),
     });
   }
 

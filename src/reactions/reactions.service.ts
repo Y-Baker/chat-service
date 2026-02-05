@@ -10,6 +10,8 @@ import { Model } from 'mongoose';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ChatGateway } from '../gateway/chat.gateway';
 import { Message, MessageDocument, Reaction } from '../messages/schemas/message.schema';
+import { WebhooksService } from '../webhooks/webhooks.service';
+import { WebhookEventType } from '../webhooks/enums/webhook-event-type.enum';
 
 @Injectable()
 export class ReactionsService {
@@ -19,6 +21,7 @@ export class ReactionsService {
     private readonly conversationsService: ConversationsService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway?: ChatGateway,
+    private readonly webhooksService?: WebhooksService,
   ) {}
 
   async addReaction(messageId: string, userId: string, emoji: string): Promise<Reaction[]> {
@@ -50,6 +53,14 @@ export class ReactionsService {
     const totalCount = updatedReaction?.userIds.length ?? 0;
 
     this.chatGateway?.emitToConversation(message.conversationId.toString(), 'reaction:added', {
+      messageId: message._id.toString(),
+      conversationId: message.conversationId.toString(),
+      emoji,
+      userId,
+      totalCount,
+      timestamp: new Date().toISOString(),
+    });
+    await this.webhooksService?.emitEvent(WebhookEventType.REACTION_ADDED, {
       messageId: message._id.toString(),
       conversationId: message.conversationId.toString(),
       emoji,
@@ -91,6 +102,14 @@ export class ReactionsService {
     const totalCount = updatedReaction?.userIds.length ?? 0;
 
     this.chatGateway?.emitToConversation(message.conversationId.toString(), 'reaction:removed', {
+      messageId: message._id.toString(),
+      conversationId: message.conversationId.toString(),
+      emoji,
+      userId,
+      totalCount,
+      timestamp: new Date().toISOString(),
+    });
+    await this.webhooksService?.emitEvent(WebhookEventType.REACTION_REMOVED, {
       messageId: message._id.toString(),
       conversationId: message.conversationId.toString(),
       emoji,

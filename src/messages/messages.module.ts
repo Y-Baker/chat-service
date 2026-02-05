@@ -4,6 +4,7 @@ import { ConversationsModule } from '../conversations/conversations.module';
 import { UsersModule } from '../users/users.module';
 import { GatewayModule } from '../gateway/gateway.module';
 import { PresenceModule } from '../presence/presence.module';
+import { WebhooksModule } from '../webhooks/webhooks.module';
 import { MessagesController } from './messages.controller';
 import { MessagesService } from './messages.service';
 import { Message, MessageSchema } from './schemas/message.schema';
@@ -14,6 +15,7 @@ import { Message, MessageSchema } from './schemas/message.schema';
     UsersModule,
     forwardRef(() => GatewayModule),
     forwardRef(() => PresenceModule),
+    WebhooksModule,
     MongooseModule.forFeature([{ name: Message.name, schema: MessageSchema }]),
   ],
   controllers: [MessagesController],

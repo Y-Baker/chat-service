@@ -24,8 +24,12 @@ export default () => ({
     activityCheckInterval: parseInt(process.env.PRESENCE_ACTIVITY_CHECK_INTERVAL ?? '60', 10),
   },
   webhook: {
+    enabled: process.env.WEBHOOK_ENABLED === 'true',
     url: process.env.WEBHOOK_URL,
     secret: process.env.WEBHOOK_SECRET,
+    events: process.env.WEBHOOK_EVENTS,
+    retryAttempts: parseInt(process.env.WEBHOOK_RETRY_ATTEMPTS ?? '3', 10),
+    timeoutMs: parseInt(process.env.WEBHOOK_TIMEOUT_MS ?? '5000', 10),
   },
   cors: {
     origins: process.env.ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim()) ?? [],

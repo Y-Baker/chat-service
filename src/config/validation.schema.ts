@@ -17,5 +17,9 @@ export const validationSchema = Joi.object({
   PRESENCE_ACTIVITY_CHECK_INTERVAL: Joi.number().integer().min(1).default(60),
   WEBHOOK_URL: Joi.string().uri().optional(),
   WEBHOOK_SECRET: Joi.string().min(32).optional(),
+  WEBHOOK_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  WEBHOOK_EVENTS: Joi.string().optional(),
+  WEBHOOK_RETRY_ATTEMPTS: Joi.number().integer().min(1).default(3),
+  WEBHOOK_TIMEOUT_MS: Joi.number().integer().min(1000).default(5000),
   ALLOWED_ORIGINS: Joi.string().optional(),
 });

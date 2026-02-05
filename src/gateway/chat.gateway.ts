@@ -35,6 +35,8 @@ import { WsReactionDto } from './dto/ws-reaction.dto';
 import { WsMessageReadDto, WsConversationReadDto } from './dto/ws-message-read.dto';
 import { WsConversationActivityDto } from './dto/ws-conversation-activity.dto';
 import { PresenceService } from '../presence/presence.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
+import { WebhookEventType } from '../webhooks/enums/webhook-event-type.enum';
 
 interface JwtPayload {
   externalUserId?: string;
@@ -91,6 +93,7 @@ export class ChatGateway
     private readonly reactionsService: ReactionsService,
     private readonly readReceiptsService: ReadReceiptsService,
     private readonly presenceService: PresenceService,
+    private readonly webhooksService: WebhooksService,
   ) {}
 
   afterInit(server: Server): void {
@@ -123,6 +126,11 @@ export class ChatGateway
     });
 
     await this.broadcastUserOnline(socket);
+    await this.webhooksService.emitEvent(WebhookEventType.USER_ONLINE, {
+      userId: user.externalUserId,
+      socketId: socket.id,
+      timestamp: new Date().toISOString(),
+    });
     this.logger.log(`WS connected user=${user.externalUserId} socket=${socket.id}`);
   }
 
@@ -159,6 +167,12 @@ export class ChatGateway
         });
       });
       await this.broadcastUserOffline(socket, lastSeen);
+      await this.webhooksService.emitEvent(WebhookEventType.USER_OFFLINE, {
+        userId,
+        socketId: socket.id,
+        lastSeen: lastSeen.toISOString(),
+        timestamp: new Date().toISOString(),
+      });
     }
 
     this.logger.log(`WS disconnected user=${userId} socket=${socket.id}`);

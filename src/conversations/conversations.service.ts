@@ -22,6 +22,8 @@ import {
 import { Participant, ParticipantRole } from './schemas/participant.schema';
 import { ChatGateway } from '../gateway/chat.gateway';
 import { ReadReceiptsService } from '../read-receipts/read-receipts.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
+import { WebhookEventType } from '../webhooks/enums/webhook-event-type.enum';
 
 export interface PaginatedConversations {
   data: Conversation[];
@@ -52,6 +54,7 @@ export class ConversationsService {
     private readonly chatGateway?: ChatGateway,
     @Inject(forwardRef(() => ReadReceiptsService))
     private readonly readReceiptsService?: ReadReceiptsService,
+    private readonly webhooksService?: WebhooksService,
   ) {}
 
   async create(userId: string, dto: CreateConversationDto): Promise<Conversation> {
@@ -87,6 +90,13 @@ export class ConversationsService {
         created._id.toString(),
         created.participantIds,
       );
+      await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_CREATED, {
+        conversationId: created._id.toString(),
+        type: created.type,
+        participantIds: created.participantIds,
+        createdBy: created.createdBy,
+        createdAt: created.createdAt ?? new Date(),
+      });
       return created.toObject();
     } catch (error) {
       if (this.isDuplicateKeyError(error) && dto.type === ConversationType.Direct) {
@@ -216,6 +226,14 @@ export class ConversationsService {
       createdBy: userId,
     });
 
+    await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_CREATED, {
+      conversationId: created._id.toString(),
+      type: created.type,
+      participantIds: created.participantIds,
+      createdBy: created.createdBy,
+      createdAt: created.createdAt ?? new Date(),
+    });
+
     return created.toObject();
   }
 
@@ -254,6 +272,14 @@ export class ConversationsService {
 
     await conversation.save();
     await this.chatGateway?.notifyUserAdded(conversationId, dto.externalUserId);
+    await this.webhooksService?.emitEvent(WebhookEventType.PARTICIPANT_ADDED, {
+      conversationId,
+      type: conversation.type,
+      userId: dto.externalUserId,
+      addedBy: userId,
+      role: participant.role,
+      timestamp: new Date().toISOString(),
+    });
     return conversation;
   }
 
@@ -290,11 +316,31 @@ export class ConversationsService {
     if (conversation.participants.length === 0) {
       await conversation.deleteOne();
       await this.chatGateway?.notifyUserRemoved(conversationId, targetUserId);
+      await this.webhooksService?.emitEvent(WebhookEventType.PARTICIPANT_REMOVED, {
+        conversationId,
+        type: conversation.type,
+        userId: targetUserId,
+        removedBy: userId,
+        timestamp: new Date().toISOString(),
+      });
+      await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_DELETED, {
+        conversationId,
+        type: conversation.type,
+        deletedBy: userId,
+        deletedAt: new Date().toISOString(),
+      });
       return conversation;
     }
 
     await conversation.save();
     await this.chatGateway?.notifyUserRemoved(conversationId, targetUserId);
+    await this.webhooksService?.emitEvent(WebhookEventType.PARTICIPANT_REMOVED, {
+      conversationId,
+      type: conversation.type,
+      userId: targetUserId,
+      removedBy: userId,
+      timestamp: new Date().toISOString(),
+    });
     return conversation;
   }
 
@@ -353,11 +399,31 @@ export class ConversationsService {
     if (conversation.participants.length === 0) {
       await conversation.deleteOne();
       await this.chatGateway?.notifyUserRemoved(conversationId, userId);
+      await this.webhooksService?.emitEvent(WebhookEventType.PARTICIPANT_REMOVED, {
+        conversationId,
+        type: conversation.type,
+        userId,
+        removedBy: userId,
+        timestamp: new Date().toISOString(),
+      });
+      await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_DELETED, {
+        conversationId,
+        type: conversation.type,
+        deletedBy: userId,
+        deletedAt: new Date().toISOString(),
+      });
       return;
     }
 
     await conversation.save();
     await this.chatGateway?.notifyUserRemoved(conversationId, userId);
+    await this.webhooksService?.emitEvent(WebhookEventType.PARTICIPANT_REMOVED, {
+      conversationId,
+      type: conversation.type,
+      userId,
+      removedBy: userId,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   async delete(conversationId: string, userId: string): Promise<void> {
@@ -373,6 +439,12 @@ export class ConversationsService {
 
     await conversation.deleteOne();
     await this.deleteMessagesForConversation(conversationId);
+    await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_DELETED, {
+      conversationId,
+      type: conversation.type,
+      deletedBy: userId,
+      deletedAt: new Date().toISOString(),
+    });
   }
 
   async updateLastMessage(

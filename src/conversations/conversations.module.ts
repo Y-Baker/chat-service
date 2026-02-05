@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { GatewayModule } from '../gateway/gateway.module';
 import { ReadReceiptsModule } from '../read-receipts/read-receipts.module';
+import { WebhooksModule } from '../webhooks/webhooks.module';
 import { ConversationsController } from './conversations.controller';
 import { ConversationsService } from './conversations.service';
 import { Conversation, ConversationSchema } from './schemas/conversation.schema';
@@ -14,6 +15,7 @@ import { Conversation, ConversationSchema } from './schemas/conversation.schema'
     UsersModule,
     forwardRef(() => GatewayModule),
     forwardRef(() => ReadReceiptsModule),
+    WebhooksModule,
     MongooseModule.forFeature([{ name: Conversation.name, schema: ConversationSchema }]),
   ],
   controllers: [ConversationsController],

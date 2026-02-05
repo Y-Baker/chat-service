@@ -13,6 +13,7 @@ import { GatewayModule } from './gateway/gateway.module';
 import { ReactionsModule } from './reactions/reactions.module';
 import { ReadReceiptsModule } from './read-receipts/read-receipts.module';
 import { PresenceModule } from './presence/presence.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { PresenceModule } from './presence/presence.module';
     ReactionsModule,
     ReadReceiptsModule,
     PresenceModule,
+    WebhooksModule,
     GatewayModule,
   ],
   controllers: [],
