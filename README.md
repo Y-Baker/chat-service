@@ -43,6 +43,7 @@ curl http://localhost:3000/health
 - Architecture: `docs/ARCHITECTURE.md`
 - Troubleshooting: `docs/TROUBLESHOOTING.md`
 - Communication Model: `docs/communication.md`
+- Swagger UI: `/api/docs` (runtime)
 
 ## Key Endpoints (REST)
 - `POST /api/conversations`

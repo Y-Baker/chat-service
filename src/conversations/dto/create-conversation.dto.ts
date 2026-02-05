@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -46,15 +47,18 @@ class ParticipantCountConstraint implements ValidatorConstraintInterface {
 }
 
 export class CreateConversationDto {
+  @ApiProperty({ enum: ConversationType, example: ConversationType.Direct })
   @IsEnum(ConversationType)
   type!: ConversationType;
 
+  @ApiPropertyOptional({ example: 'Team Chat', maxLength: 100 })
   @ValidateIf((dto) => dto.type === ConversationType.Group)
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   name?: string;
 
+  @ApiProperty({ example: ['user_1', 'user_2'] })
   @IsArray()
   @ArrayMinSize(2)
   @ArrayMaxSize(50)
@@ -63,6 +67,7 @@ export class CreateConversationDto {
   @Validate(ParticipantCountConstraint)
   participantIds!: string[];
 
+  @ApiPropertyOptional({ type: Object })
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;

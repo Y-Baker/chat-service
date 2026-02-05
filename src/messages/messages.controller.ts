@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
@@ -23,6 +24,8 @@ import {
   MessageWithSenderAndReply,
 } from './messages.service';
 
+@ApiTags('messages')
+@ApiBearerAuth()
 @Controller('api')
 @UseGuards(JwtAuthGuard)
 export class MessagesController {
@@ -32,6 +35,7 @@ export class MessagesController {
   ) {}
 
   @Post('conversations/:conversationId/messages')
+  @ApiOperation({ summary: 'Send a message' })
   async send(
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId') conversationId: string,
@@ -47,6 +51,7 @@ export class MessagesController {
   }
 
   @Get('conversations/:conversationId/messages')
+  @ApiOperation({ summary: 'List messages in a conversation' })
   async list(
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId') conversationId: string,
@@ -57,6 +62,7 @@ export class MessagesController {
   }
 
   @Get('messages/:id')
+  @ApiOperation({ summary: 'Get a message by id' })
   async findOne(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
@@ -76,6 +82,7 @@ export class MessagesController {
   }
 
   @Patch('messages/:id')
+  @ApiOperation({ summary: 'Edit a message' })
   async edit(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
@@ -85,6 +92,7 @@ export class MessagesController {
   }
 
   @Delete('messages/:id')
+  @ApiOperation({ summary: 'Delete a message' })
   async remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,

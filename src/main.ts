@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './gateway/adapters/redis-io.adapter';
 
@@ -24,6 +26,16 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Chat Service API')
+    .setDescription('REST API for the chat microservice')
+    .setVersion('1.0.0')
+    .addBearerAuth()
+    .build();
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, swaggerDocument);
+  app.use('/api/docs-json', (_req: Request, res: Response) => res.json(swaggerDocument));
 
   // CORS Configuration
   const allowedOrigins = configService.get<string[]>('cors.origins') ?? [];

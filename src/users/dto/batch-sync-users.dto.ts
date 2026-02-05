@@ -1,8 +1,10 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { ArrayMaxSize, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SyncUserDto } from './sync-user.dto';
 
 export class BatchSyncUsersDto {
+  @ApiProperty({ type: [SyncUserDto] })
   @IsArray()
   @ArrayMaxSize(100)
   @ValidateNested({ each: true })

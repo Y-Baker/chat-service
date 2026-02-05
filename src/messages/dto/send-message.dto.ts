@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   IsArray,
@@ -16,15 +17,18 @@ import {
 import { Type } from 'class-transformer';
 
 export class AttachmentDto {
+  @ApiProperty({ example: 'file_123' })
   @IsString()
   @IsNotEmpty()
   externalFileId!: string;
 
+  @ApiPropertyOptional({ example: 'report.pdf', maxLength: 255 })
   @IsOptional()
   @IsString()
   @MaxLength(255)
   label?: string;
 
+  @ApiPropertyOptional({ type: Object })
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
@@ -46,11 +50,13 @@ class ContentOrAttachmentsConstraint implements ValidatorConstraintInterface {
 }
 
 export class SendMessageDto {
+  @ApiProperty({ example: 'Hello there', maxLength: 5000 })
   @IsString()
   @MaxLength(5000)
   @Validate(ContentOrAttachmentsConstraint)
   content!: string;
 
+  @ApiPropertyOptional({ type: [AttachmentDto] })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(10)
@@ -58,10 +64,12 @@ export class SendMessageDto {
   @Type(() => AttachmentDto)
   attachments?: AttachmentDto[];
 
+  @ApiPropertyOptional({ example: '6566cbd9f1b6c2a9c2a2a123' })
   @IsOptional()
   @IsMongoId()
   replyTo?: string;
 
+  @ApiPropertyOptional({ type: Object })
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;

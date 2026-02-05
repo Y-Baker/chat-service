@@ -10,6 +10,7 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 @ValidatorConstraint({ name: 'beforeAfter', async: false })
@@ -25,6 +26,7 @@ class BeforeAfterConstraint implements ValidatorConstraintInterface {
 }
 
 export class QueryMessagesDto {
+  @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 100 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -32,14 +34,17 @@ export class QueryMessagesDto {
   @Max(100)
   limit: number = 50;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsMongoId()
   before?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsMongoId()
   after?: string;
 
+  @ApiPropertyOptional({ default: false })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()

@@ -1,0 +1,358 @@
+{
+  "info": {
+    "name": "Chat Service API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "internal_secret", "value": "" },
+    { "key": "conversation_id", "value": "" },
+    { "key": "message_id", "value": "" },
+    { "key": "user_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users (Internal)",
+      "item": [
+        {
+          "name": "POST /api/users/sync",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Internal-Secret", "value": "{{internal_secret}}" }
+            ],
+            "url": "{{base_url}}/api/users/sync",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"externalUserId\": \"user_1\",\n  \"displayName\": \"User One\"\n}"
+            }
+          }
+        },
+        {
+          "name": "POST /api/users/sync/batch",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Internal-Secret", "value": "{{internal_secret}}" }
+            ],
+            "url": "{{base_url}}/api/users/sync/batch",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"users\": [\n    {\"externalUserId\": \"user_1\", \"displayName\": \"User One\"}\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /api/users/:externalUserId",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Internal-Secret", "value": "{{internal_secret}}" }
+            ],
+            "url": "{{base_url}}/api/users/{{user_id}}"
+          }
+        },
+        {
+          "name": "DELETE /api/users/:externalUserId",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-Internal-Secret", "value": "{{internal_secret}}" }
+            ],
+            "url": "{{base_url}}/api/users/{{user_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Conversations",
+      "item": [
+        {
+          "name": "POST /api/conversations",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"direct\",\n  \"participantIds\": [\"user_1\", \"user_2\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /api/conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations"
+          }
+        },
+        {
+          "name": "GET /api/conversations/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations/{{conversation_id}}"
+          }
+        },
+        {
+          "name": "DELETE /api/conversations/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations/{{conversation_id}}"
+          }
+        },
+        {
+          "name": "POST /api/conversations/:id/participants",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations/{{conversation_id}}/participants",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"externalUserId\": \"user_3\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PATCH /api/conversations/:id/participants/:userId",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations/{{conversation_id}}/participants/{{user_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/conversations/:id/participants/:userId",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations/{{conversation_id}}/participants/{{user_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "POST /api/conversations/:conversationId/messages",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations/{{conversation_id}}/messages",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /api/conversations/:conversationId/messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations/{{conversation_id}}/messages"
+          }
+        },
+        {
+          "name": "GET /api/messages/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/messages/{{message_id}}"
+          }
+        },
+        {
+          "name": "PATCH /api/messages/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/messages/{{message_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Edited\"\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/messages/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/messages/{{message_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reactions",
+      "item": [
+        {
+          "name": "POST /api/messages/:messageId/reactions",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/messages/{{message_id}}/reactions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emoji\": \"👍\"\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/messages/:messageId/reactions/:emoji",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/messages/{{message_id}}/reactions/%F0%9F%91%8D"
+          }
+        },
+        {
+          "name": "GET /api/messages/:messageId/reactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/messages/{{message_id}}/reactions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read Receipts",
+      "item": [
+        {
+          "name": "PUT /api/messages/:messageId/read",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/messages/{{message_id}}/read"
+          }
+        },
+        {
+          "name": "PUT /api/conversations/:conversationId/read",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations/{{conversation_id}}/read",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"upToMessageId\": \"{{message_id}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /api/messages/:messageId/read",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/messages/{{message_id}}/read"
+          }
+        },
+        {
+          "name": "GET /api/conversations/:conversationId/unread-count",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations/{{conversation_id}}/unread-count"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Presence",
+      "item": [
+        {
+          "name": "GET /api/users/:userId/presence",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/users/{{user_id}}/presence"
+          }
+        },
+        {
+          "name": "GET /api/conversations/:conversationId/presence",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/conversations/{{conversation_id}}/presence"
+          }
+        },
+        {
+          "name": "POST /api/presence/batch",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/api/presence/batch",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userIds\": [\"user_1\", \"user_2\"]\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

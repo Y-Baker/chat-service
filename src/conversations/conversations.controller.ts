@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConversationsService } from './conversations.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { QueryConversationsDto } from './dto/query-conversations.dto';
@@ -37,6 +38,8 @@ type ConversationWithProfiles = Omit<Conversation, 'participants'> & {
   participants: ConversationParticipantWithProfile[];
 };
 
+@ApiTags('conversations')
+@ApiBearerAuth()
 @Controller('api/conversations')
 @UseGuards(JwtAuthGuard)
 export class ConversationsController {
@@ -46,6 +49,7 @@ export class ConversationsController {
   ) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a conversation' })
   async create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateConversationDto,
@@ -55,6 +59,7 @@ export class ConversationsController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'List conversations for current user' })
   async list(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: QueryConversationsDto,
@@ -69,6 +74,7 @@ export class ConversationsController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get a conversation by id' })
   async findOne(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
@@ -78,6 +84,7 @@ export class ConversationsController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Leave or delete a conversation' })
   async remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
@@ -108,6 +115,7 @@ export class ConversationsController {
   }
 
   @Post(':id/participants')
+  @ApiOperation({ summary: 'Add a participant to a conversation' })
   async addParticipant(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
@@ -122,6 +130,7 @@ export class ConversationsController {
   }
 
   @Patch(':id/participants/:userId')
+  @ApiOperation({ summary: 'Update a participant role' })
   async updateParticipantRole(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
@@ -138,6 +147,7 @@ export class ConversationsController {
   }
 
   @Delete(':id/participants/:userId')
+  @ApiOperation({ summary: 'Remove a participant from a conversation' })
   async removeParticipant(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
