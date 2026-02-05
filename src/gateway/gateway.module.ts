@@ -9,6 +9,7 @@ import { ConversationsModule } from '../conversations/conversations.module';
 import { UsersModule } from '../users/users.module';
 import { ReactionsModule } from '../reactions/reactions.module';
 import { ReadReceiptsModule } from '../read-receipts/read-receipts.module';
+import { PresenceModule } from '../presence/presence.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ReadReceiptsModule } from '../read-receipts/read-receipts.module';
     forwardRef(() => UsersModule),
     forwardRef(() => ReactionsModule),
     forwardRef(() => ReadReceiptsModule),
+    forwardRef(() => PresenceModule),
   ],
   providers: [ChatGateway, ConnectionService, RoomService],
   exports: [ChatGateway],

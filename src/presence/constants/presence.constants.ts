@@ -1,0 +1,5 @@
+export const DEFAULT_TYPING_TTL = 5;
+export const DEFAULT_RECORDING_TTL = 30;
+export const DEFAULT_AWAY_THRESHOLD = 5 * 60;
+export const DEFAULT_LAST_SEEN_TTL = 30 * 24 * 60 * 60;
+export const DEFAULT_ACTIVITY_CHECK_INTERVAL = 60;

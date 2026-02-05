@@ -11,6 +11,7 @@ import { Model, Types } from 'mongoose';
 import { ConversationsService } from '../conversations/conversations.service';
 import { UsersService } from '../users/users.service';
 import { ChatGateway } from '../gateway/chat.gateway';
+import { PresenceService } from '../presence/presence.service';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { QueryMessagesDto } from './dto/query-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -64,6 +65,8 @@ export class MessagesService {
     private readonly usersService: UsersService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway?: ChatGateway,
+    @Inject(forwardRef(() => PresenceService))
+    private readonly presenceService?: PresenceService,
   ) {}
 
   async send(conversationId: string, senderId: string, dto: SendMessageDto): Promise<MessageWithSender> {
@@ -112,6 +115,7 @@ export class MessagesService {
     const populatedForSender = await this.populateMessageWithSender(message, senderId);
     const broadcastPayload = await this.populateMessageWithSender(message);
     this.chatGateway?.emitToConversation(conversationId, 'message:new', broadcastPayload);
+    await this.presenceService?.updateActivity(senderId);
     return populatedForSender;
   }
 
@@ -239,6 +243,7 @@ export class MessagesService {
       isEdited: message.isEdited,
       updatedAt: message.updatedAt,
     });
+    await this.presenceService?.updateActivity(userId);
 
     return populated;
   }
@@ -267,6 +272,7 @@ export class MessagesService {
       conversationId: message.conversationId.toString(),
       deletedAt: message.deletedAt.toISOString(),
     });
+    await this.presenceService?.updateActivity(userId);
 
     return { deleted: true };
   }

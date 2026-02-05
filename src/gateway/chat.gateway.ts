@@ -33,6 +33,8 @@ import { WsEditMessageDto } from './dto/ws-edit-message.dto';
 import { WsDeleteMessageDto } from './dto/ws-delete-message.dto';
 import { WsReactionDto } from './dto/ws-reaction.dto';
 import { WsMessageReadDto, WsConversationReadDto } from './dto/ws-message-read.dto';
+import { WsConversationActivityDto } from './dto/ws-conversation-activity.dto';
+import { PresenceService } from '../presence/presence.service';
 
 interface JwtPayload {
   externalUserId?: string;
@@ -88,6 +90,7 @@ export class ChatGateway
     private readonly conversationsService: ConversationsService,
     private readonly reactionsService: ReactionsService,
     private readonly readReceiptsService: ReadReceiptsService,
+    private readonly presenceService: PresenceService,
   ) {}
 
   afterInit(server: Server): void {
@@ -109,6 +112,7 @@ export class ChatGateway
 
     socket.user = user;
     await this.connectionService.registerConnection(socket.id, user.externalUserId);
+    await this.presenceService.setOnline(user.externalUserId);
     const rooms = await this.roomService.joinUserRooms(socket);
 
     socket.emit('connected', {
@@ -136,7 +140,25 @@ export class ChatGateway
 
     const stillOnline = await this.connectionService.isUserOnline(userId);
     if (!stillOnline) {
-      await this.broadcastUserOffline(socket);
+      const lastSeen = await this.presenceService.setOffline(userId);
+      await this.presenceService.clearUserActivityIndicators(userId, socket.user.conversationIds);
+      socket.user.conversationIds.forEach((conversationId) => {
+        this.emitToConversation(conversationId, 'user:typing', {
+          conversationId,
+          userId,
+          type: 'typing',
+          isActive: false,
+          timestamp: new Date().toISOString(),
+        });
+        this.emitToConversation(conversationId, 'user:recording', {
+          conversationId,
+          userId,
+          type: 'recording',
+          isActive: false,
+          timestamp: new Date().toISOString(),
+        });
+      });
+      await this.broadcastUserOffline(socket, lastSeen);
     }
 
     this.logger.log(`WS disconnected user=${userId} socket=${socket.id}`);
@@ -160,6 +182,7 @@ export class ChatGateway
       replyTo: dto.replyTo,
     });
 
+    await this.presenceService.updateActivity(userId);
     return { success: true, message };
   }
 
@@ -171,6 +194,7 @@ export class ChatGateway
     const userId = socket.user.externalUserId;
     const message = await this.messagesService.edit(dto.messageId, userId, { content: dto.content });
 
+    await this.presenceService.updateActivity(userId);
     return { success: true, message };
   }
 
@@ -188,6 +212,7 @@ export class ChatGateway
 
     await this.messagesService.delete(dto.messageId, userId);
 
+    await this.presenceService.updateActivity(userId);
     return { success: true };
   }
 
@@ -198,6 +223,7 @@ export class ChatGateway
   ) {
     const userId = socket.user.externalUserId;
     const reactions = await this.reactionsService.addReaction(dto.messageId, userId, dto.emoji);
+    await this.presenceService.updateActivity(userId);
     return { success: true, reactions };
   }
 
@@ -208,6 +234,7 @@ export class ChatGateway
   ) {
     const userId = socket.user.externalUserId;
     const reactions = await this.reactionsService.removeReaction(dto.messageId, userId, dto.emoji);
+    await this.presenceService.updateActivity(userId);
     return { success: true, reactions };
   }
 
@@ -218,6 +245,7 @@ export class ChatGateway
   ) {
     const userId = socket.user.externalUserId;
     const result = await this.readReceiptsService.markAsRead(dto.messageId, userId);
+    await this.presenceService.updateActivity(userId);
     return { success: true, readAt: result.readAt };
   }
 
@@ -232,7 +260,92 @@ export class ChatGateway
       userId,
       dto.upToMessageId,
     );
+    await this.presenceService.updateActivity(userId);
     return { success: true, count: result.markedCount };
+  }
+
+  @SubscribeMessage('typing:start')
+  async handleTypingStart(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() dto: WsConversationActivityDto,
+  ) {
+    const userId = socket.user.externalUserId;
+    const isParticipant = await this.conversationsService.isParticipant(dto.conversationId, userId);
+    if (!isParticipant) {
+      throw new WsException({ code: 'FORBIDDEN', message: 'Not a participant in this conversation' });
+    }
+
+    await this.presenceService.setTyping(dto.conversationId, userId);
+    socket.to(this.roomService.getConversationRoom(dto.conversationId)).emit('user:typing', {
+      conversationId: dto.conversationId,
+      userId,
+      type: 'typing',
+      isActive: true,
+      timestamp: new Date().toISOString(),
+    });
+    return { success: true };
+  }
+
+  @SubscribeMessage('typing:stop')
+  async handleTypingStop(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() dto: WsConversationActivityDto,
+  ) {
+    const userId = socket.user.externalUserId;
+    await this.presenceService.stopTyping(dto.conversationId, userId);
+    socket.to(this.roomService.getConversationRoom(dto.conversationId)).emit('user:typing', {
+      conversationId: dto.conversationId,
+      userId,
+      type: 'typing',
+      isActive: false,
+      timestamp: new Date().toISOString(),
+    });
+    return { success: true };
+  }
+
+  @SubscribeMessage('recording:start')
+  async handleRecordingStart(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() dto: WsConversationActivityDto,
+  ) {
+    const userId = socket.user.externalUserId;
+    const isParticipant = await this.conversationsService.isParticipant(dto.conversationId, userId);
+    if (!isParticipant) {
+      throw new WsException({ code: 'FORBIDDEN', message: 'Not a participant in this conversation' });
+    }
+
+    await this.presenceService.setRecording(dto.conversationId, userId);
+    socket.to(this.roomService.getConversationRoom(dto.conversationId)).emit('user:recording', {
+      conversationId: dto.conversationId,
+      userId,
+      type: 'recording',
+      isActive: true,
+      timestamp: new Date().toISOString(),
+    });
+    return { success: true };
+  }
+
+  @SubscribeMessage('recording:stop')
+  async handleRecordingStop(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() dto: WsConversationActivityDto,
+  ) {
+    const userId = socket.user.externalUserId;
+    await this.presenceService.stopRecording(dto.conversationId, userId);
+    socket.to(this.roomService.getConversationRoom(dto.conversationId)).emit('user:recording', {
+      conversationId: dto.conversationId,
+      userId,
+      type: 'recording',
+      isActive: false,
+      timestamp: new Date().toISOString(),
+    });
+    return { success: true };
+  }
+
+  @SubscribeMessage('activity:ping')
+  async handleActivityPing(@ConnectedSocket() socket: AuthenticatedSocket) {
+    await this.presenceService.updateActivity(socket.user.externalUserId);
+    return { success: true };
   }
 
   @SubscribeMessage('room:join')
@@ -402,7 +515,10 @@ export class ChatGateway
     );
   }
 
-  private async broadcastUserOffline(socket: AuthenticatedSocket): Promise<void> {
+  private async broadcastUserOffline(
+    socket: AuthenticatedSocket,
+    lastSeen?: Date,
+  ): Promise<void> {
     const userId = socket.user.externalUserId;
     const conversationIds = socket.user.conversationIds;
 
@@ -411,6 +527,7 @@ export class ChatGateway
         this.emitToConversation(conversationId, 'user:offline', {
           userId,
           conversationId,
+          lastSeen: lastSeen ? lastSeen.toISOString() : undefined,
           timestamp: new Date().toISOString(),
         }),
       ),
