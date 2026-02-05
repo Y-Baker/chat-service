@@ -26,8 +26,8 @@ import { ConversationsService } from '../conversations/conversations.service';
 import { ReactionsService } from '../reactions/reactions.service';
 import { ReadReceiptsService } from '../read-receipts/read-receipts.service';
 import { WsExceptionFilter } from './filters/ws-exception.filter';
-import { AuthenticatedSocket } from './interfaces/authenticated-socket.interface';
-import { SocketUserData } from './interfaces/socket-user-data.interface';
+import type { AuthenticatedSocket } from './interfaces/authenticated-socket.interface';
+import type { SocketUserData } from './interfaces/socket-user-data.interface';
 import { WsSendMessageDto } from './dto/ws-send-message.dto';
 import { WsEditMessageDto } from './dto/ws-edit-message.dto';
 import { WsDeleteMessageDto } from './dto/ws-delete-message.dto';
@@ -43,14 +43,6 @@ interface JwtPayload {
   sub?: string;
 }
 
-@UseFilters(WsExceptionFilter)
-@UsePipes(
-  new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-  }),
-)
 const envWsPort = process.env.WS_PORT ? parseInt(process.env.WS_PORT, 10) : undefined;
 const wsPort =
   process.env.NODE_ENV === 'test'
@@ -73,6 +65,14 @@ const gatewayOptions = {
 const GatewayDecorator =
   wsPort === undefined ? WebSocketGateway(gatewayOptions) : WebSocketGateway(wsPort, gatewayOptions);
 
+@UseFilters(WsExceptionFilter)
+@UsePipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }),
+)
 @GatewayDecorator
 export class ChatGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy

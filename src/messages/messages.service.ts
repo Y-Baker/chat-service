@@ -19,7 +19,7 @@ import { QueryMessagesDto } from './dto/query-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { Message, MessageDocument, MessageType, Reaction, ReadReceipt } from './schemas/message.schema';
 
-export interface MessageWithSender extends Message {
+export type MessageWithSender = Omit<Message, 'reactions' | 'readBy'> & {
   sender: {
     externalUserId: string;
     displayName?: string;
@@ -34,7 +34,7 @@ export interface MessageWithSender extends Message {
   readBy?: Array<{ userId: string; readAt: Date }>;
   readCount?: number;
   isReadByMe?: boolean;
-}
+};
 
 export interface ReplyPreview {
   _id: Types.ObjectId;
