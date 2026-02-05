@@ -23,12 +23,16 @@ import { ConnectionService } from './services/connection.service';
 import { RoomService } from './services/room.service';
 import { MessagesService } from '../messages/messages.service';
 import { ConversationsService } from '../conversations/conversations.service';
+import { ReactionsService } from '../reactions/reactions.service';
+import { ReadReceiptsService } from '../read-receipts/read-receipts.service';
 import { WsExceptionFilter } from './filters/ws-exception.filter';
 import { AuthenticatedSocket } from './interfaces/authenticated-socket.interface';
 import { SocketUserData } from './interfaces/socket-user-data.interface';
 import { WsSendMessageDto } from './dto/ws-send-message.dto';
 import { WsEditMessageDto } from './dto/ws-edit-message.dto';
 import { WsDeleteMessageDto } from './dto/ws-delete-message.dto';
+import { WsReactionDto } from './dto/ws-reaction.dto';
+import { WsMessageReadDto, WsConversationReadDto } from './dto/ws-message-read.dto';
 
 interface JwtPayload {
   externalUserId?: string;
@@ -82,6 +86,8 @@ export class ChatGateway
     private readonly roomService: RoomService,
     private readonly messagesService: MessagesService,
     private readonly conversationsService: ConversationsService,
+    private readonly reactionsService: ReactionsService,
+    private readonly readReceiptsService: ReadReceiptsService,
   ) {}
 
   afterInit(server: Server): void {
@@ -185,6 +191,50 @@ export class ChatGateway
     return { success: true };
   }
 
+  @SubscribeMessage('reaction:add')
+  async handleReactionAdd(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() dto: WsReactionDto,
+  ) {
+    const userId = socket.user.externalUserId;
+    const reactions = await this.reactionsService.addReaction(dto.messageId, userId, dto.emoji);
+    return { success: true, reactions };
+  }
+
+  @SubscribeMessage('reaction:remove')
+  async handleReactionRemove(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() dto: WsReactionDto,
+  ) {
+    const userId = socket.user.externalUserId;
+    const reactions = await this.reactionsService.removeReaction(dto.messageId, userId, dto.emoji);
+    return { success: true, reactions };
+  }
+
+  @SubscribeMessage('message:read')
+  async handleMessageRead(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() dto: WsMessageReadDto,
+  ) {
+    const userId = socket.user.externalUserId;
+    const result = await this.readReceiptsService.markAsRead(dto.messageId, userId);
+    return { success: true, readAt: result.readAt };
+  }
+
+  @SubscribeMessage('conversation:read')
+  async handleConversationRead(
+    @ConnectedSocket() socket: AuthenticatedSocket,
+    @MessageBody() dto: WsConversationReadDto,
+  ) {
+    const userId = socket.user.externalUserId;
+    const result = await this.readReceiptsService.markConversationAsRead(
+      dto.conversationId,
+      userId,
+      dto.upToMessageId,
+    );
+    return { success: true, count: result.markedCount };
+  }
+
   @SubscribeMessage('room:join')
   async handleJoin(
     @ConnectedSocket() socket: AuthenticatedSocket,
@@ -220,11 +270,15 @@ export class ChatGateway
       throw new WsException({ code: 'FORBIDDEN', message: 'Not a participant in this conversation' });
     }
 
-    const result = await this.messagesService.findByConversation(data.conversationId, {
-      limit: 50,
-      after: data.lastMessageId,
-      includeDeleted: false,
-    });
+    const result = await this.messagesService.findByConversation(
+      data.conversationId,
+      {
+        limit: 50,
+        after: data.lastMessageId,
+        includeDeleted: false,
+      },
+      userId,
+    );
 
     return { success: true, messages: result.data };
   }

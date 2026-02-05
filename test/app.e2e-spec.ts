@@ -635,6 +635,8 @@ describe('Messages flow (e2e)', () => {
         // ignore redis shutdown errors in tests
       }
     }
-    await connection.close();
+    if (connection) {
+      await connection.close();
+    }
   });
 });

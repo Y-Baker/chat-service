@@ -21,6 +21,7 @@ import {
 } from './schemas/conversation.schema';
 import { Participant, ParticipantRole } from './schemas/participant.schema';
 import { ChatGateway } from '../gateway/chat.gateway';
+import { ReadReceiptsService } from '../read-receipts/read-receipts.service';
 
 export interface PaginatedConversations {
   data: Conversation[];
@@ -49,6 +50,8 @@ export class ConversationsService {
     private readonly conversationModel: Model<ConversationDocument>,
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway?: ChatGateway,
+    @Inject(forwardRef(() => ReadReceiptsService))
+    private readonly readReceiptsService?: ReadReceiptsService,
   ) {}
 
   async create(userId: string, dto: CreateConversationDto): Promise<Conversation> {
@@ -137,8 +140,24 @@ export class ConversationsService {
           })
         : null;
 
+    const plainData = data.map((item) => (item.toObject ? item.toObject() : item));
+    if (this.readReceiptsService) {
+      const conversationIds = plainData.map((item) => item._id.toString());
+      const counts = await this.readReceiptsService.getUnreadCounts(conversationIds, userId);
+      return {
+        data: plainData.map((item) => ({
+          ...item,
+          unreadCount: counts.get(item._id.toString()) ?? 0,
+        })),
+        pagination: {
+          hasMore,
+          nextCursor,
+        },
+      };
+    }
+
     return {
-      data: data.map((item) => (item.toObject ? item.toObject() : item)),
+      data: plainData,
       pagination: {
         hasMore,
         nextCursor,
@@ -425,6 +444,14 @@ export class ConversationsService {
     }
 
     return this.isAdminInConversation(conversation, userId);
+  }
+
+  async getParticipantCount(conversationId: string): Promise<number> {
+    const conversation = await this.conversationModel
+      .findById(conversationId)
+      .select({ participants: 1 })
+      .lean();
+    return conversation?.participants?.length ?? 0;
   }
 
   private async ensureConversation(conversationId: string): Promise<ConversationDocument> {

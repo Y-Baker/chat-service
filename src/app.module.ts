@@ -10,6 +10,8 @@ import { UsersModule } from './users/users.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { ReactionsModule } from './reactions/reactions.module';
+import { ReadReceiptsModule } from './read-receipts/read-receipts.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { GatewayModule } from './gateway/gateway.module';
     UsersModule,
     ConversationsModule,
     MessagesModule,
+    ReactionsModule,
+    ReadReceiptsModule,
     GatewayModule,
   ],
   controllers: [],

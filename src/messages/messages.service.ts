@@ -14,7 +14,7 @@ import { ChatGateway } from '../gateway/chat.gateway';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { QueryMessagesDto } from './dto/query-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
-import { Message, MessageDocument, MessageType } from './schemas/message.schema';
+import { Message, MessageDocument, MessageType, Reaction, ReadReceipt } from './schemas/message.schema';
 
 export interface MessageWithSender extends Message {
   sender: {
@@ -22,6 +22,15 @@ export interface MessageWithSender extends Message {
     displayName?: string;
     avatarUrl?: string;
   } | null;
+  reactions?: Array<{
+    emoji: string;
+    userIds: string[];
+    count: number;
+    hasReacted?: boolean;
+  }>;
+  readBy?: Array<{ userId: string; readAt: Date }>;
+  readCount?: number;
+  isReadByMe?: boolean;
 }
 
 export interface ReplyPreview {
@@ -100,9 +109,10 @@ export class MessagesService {
       sentAt: message.createdAt ?? new Date(),
     });
 
-    const populated = await this.populateMessageWithSender(message);
-    this.chatGateway?.emitToConversation(conversationId, 'message:new', populated);
-    return populated;
+    const populatedForSender = await this.populateMessageWithSender(message, senderId);
+    const broadcastPayload = await this.populateMessageWithSender(message);
+    this.chatGateway?.emitToConversation(conversationId, 'message:new', broadcastPayload);
+    return populatedForSender;
   }
 
   async createSystemMessage(
@@ -136,7 +146,11 @@ export class MessagesService {
     return populated;
   }
 
-  async findByConversation(conversationId: string, query: QueryMessagesDto): Promise<MessagesPage> {
+  async findByConversation(
+    conversationId: string,
+    query: QueryMessagesDto,
+    currentUserId?: string,
+  ): Promise<MessagesPage> {
     if (query.before && query.after) {
       throw new BadRequestException('before and after cannot be provided together');
     }
@@ -175,7 +189,7 @@ export class MessagesService {
     if (sortDirection === 1) {
       // Ascending: oldest first, newest last
       return {
-        data: await this.populateMessages(messages),
+        data: await this.populateMessages(messages, currentUserId),
         pagination: {
           hasMore,
           oldestId: messages.length > 0 ? messages[0]._id.toString() : null,
@@ -185,7 +199,7 @@ export class MessagesService {
     }
 
     return {
-      data: await this.populateMessages(messages),
+      data: await this.populateMessages(messages, currentUserId),
       pagination: {
         hasMore,
         oldestId: oldest ? oldest._id.toString() : null,
@@ -218,7 +232,7 @@ export class MessagesService {
 
     await this.updateLastMessageIfNeeded(message);
 
-    const populated = await this.populateMessageWithSender(message);
+    const populated = await this.populateMessageWithSender(message, userId);
     this.chatGateway?.emitToConversation(message.conversationId.toString(), 'message:updated', {
       messageId: message._id.toString(),
       content: message.content,
@@ -373,12 +387,15 @@ export class MessagesService {
     await this.conversationsService.clearLastMessage(conversationId);
   }
 
-  async populateMessageWithSender(message: MessageDocument | Message): Promise<MessageWithSender> {
+  async populateMessageWithSender(
+    message: MessageDocument | Message,
+    currentUserId?: string,
+  ): Promise<MessageWithSender> {
     const plain = typeof (message as any).toObject === 'function' ? (message as any).toObject() : message;
     const profile = await this.usersService.findByExternalId(plain.senderId);
 
     return {
-      ...plain,
+      ...this.applyReactionAndReadMeta(plain, currentUserId),
       sender: profile
         ? {
             externalUserId: profile.externalUserId,
@@ -389,7 +406,7 @@ export class MessagesService {
     } as MessageWithSender;
   }
 
-  private async populateMessages(messages: Message[]): Promise<MessageWithSender[]> {
+  private async populateMessages(messages: Message[], currentUserId?: string): Promise<MessageWithSender[]> {
     if (!messages.length) {
       return [];
     }
@@ -401,7 +418,7 @@ export class MessagesService {
     return messages.map((message) => {
       const profile = profileMap.get(message.senderId);
       return {
-        ...message,
+        ...this.applyReactionAndReadMeta(message, currentUserId),
         sender: profile
           ? {
               externalUserId: profile.externalUserId,
@@ -411,6 +428,36 @@ export class MessagesService {
           : null,
       } as MessageWithSender;
     });
+  }
+
+  private applyReactionAndReadMeta(
+    message: Message,
+    currentUserId?: string,
+  ): Message & {
+    reactions?: Array<{ emoji: string; userIds: string[]; count: number; hasReacted?: boolean }>;
+    readBy?: Array<{ userId: string; readAt: Date }>;
+    readCount?: number;
+    isReadByMe?: boolean;
+  } {
+    const reactions = (message.reactions ?? []).map((reaction: Reaction) => ({
+      emoji: reaction.emoji,
+      userIds: reaction.userIds ?? [],
+      count: reaction.userIds?.length ?? 0,
+      ...(currentUserId ? { hasReacted: reaction.userIds?.includes(currentUserId) ?? false } : {}),
+    }));
+
+    const readBy = (message.readBy ?? []).map((entry: ReadReceipt) => ({
+      userId: entry.userId,
+      readAt: entry.readAt,
+    }));
+
+    return {
+      ...(message as Message),
+      reactions,
+      readBy,
+      readCount: readBy.length,
+      ...(currentUserId ? { isReadByMe: readBy.some((entry) => entry.userId === currentUserId) } : {}),
+    };
   }
 
   private async attachReplyContext(messages: MessageWithSender[]): Promise<MessageWithSenderAndReply[]> {

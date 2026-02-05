@@ -9,6 +9,28 @@ export enum MessageType {
   System = 'system',
 }
 
+@Schema({ _id: false })
+export class Reaction {
+  @Prop({ required: true, maxlength: 20 })
+  emoji!: string;
+
+  @Prop({ type: [String], default: [] })
+  userIds!: string[];
+}
+
+export const ReactionSchema = SchemaFactory.createForClass(Reaction);
+
+@Schema({ _id: false })
+export class ReadReceipt {
+  @Prop({ required: true })
+  userId!: string;
+
+  @Prop({ required: true })
+  readAt!: Date;
+}
+
+export const ReadReceiptSchema = SchemaFactory.createForClass(ReadReceipt);
+
 @Schema({ timestamps: true })
 export class Message {
   @Prop({ type: SchemaTypes.ObjectId, required: true, index: true })
@@ -41,6 +63,12 @@ export class Message {
   @Prop({ type: SchemaTypes.Mixed })
   metadata?: Record<string, unknown>;
 
+  @Prop({ type: [ReactionSchema], default: [] })
+  reactions!: Reaction[];
+
+  @Prop({ type: [ReadReceiptSchema], default: [] })
+  readBy!: ReadReceipt[];
+
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -49,3 +77,4 @@ export const MessageSchema = SchemaFactory.createForClass(Message);
 
 MessageSchema.index({ conversationId: 1, createdAt: -1 });
 MessageSchema.index({ conversationId: 1, isDeleted: 1 });
+MessageSchema.index({ conversationId: 1, senderId: 1, 'readBy.userId': 1, isDeleted: 1 });

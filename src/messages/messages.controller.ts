@@ -53,7 +53,7 @@ export class MessagesController {
     @Query() query: QueryMessagesDto,
   ) {
     await this.conversationsService.findByIdForUser(conversationId, user.externalUserId);
-    return this.messagesService.findByConversation(conversationId, query);
+    return this.messagesService.findByConversation(conversationId, query, user.externalUserId);
   }
 
   @Get('messages/:id')
@@ -71,7 +71,7 @@ export class MessagesController {
       user.externalUserId,
     );
 
-    const populated = await this.messagesService.populateMessageWithSender(message);
+    const populated = await this.messagesService.populateMessageWithSender(message, user.externalUserId);
     return this.messagesService.populateReplyPreview(populated);
   }
 

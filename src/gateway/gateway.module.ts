@@ -7,6 +7,8 @@ import { RoomService } from './services/room.service';
 import { MessagesModule } from '../messages/messages.module';
 import { ConversationsModule } from '../conversations/conversations.module';
 import { UsersModule } from '../users/users.module';
+import { ReactionsModule } from '../reactions/reactions.module';
+import { ReadReceiptsModule } from '../read-receipts/read-receipts.module';
 
 @Module({
   imports: [
@@ -21,7 +23,9 @@ import { UsersModule } from '../users/users.module';
     }),
     forwardRef(() => MessagesModule),
     forwardRef(() => ConversationsModule),
-    UsersModule,
+    forwardRef(() => UsersModule),
+    forwardRef(() => ReactionsModule),
+    forwardRef(() => ReadReceiptsModule),
   ],
   providers: [ChatGateway, ConnectionService, RoomService],
   exports: [ChatGateway],

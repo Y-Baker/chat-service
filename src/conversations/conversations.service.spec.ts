@@ -30,9 +30,16 @@ describe('ConversationsService', () => {
     exists: jest.fn(),
   });
 
+  const createService = (model: ReturnType<typeof createModel>) =>
+    new ConversationsService(
+      model as any,
+      undefined,
+      { getUnreadCounts: jest.fn().mockResolvedValue(new Map()) } as any,
+    );
+
   it('creates a direct conversation with no roles', async () => {
     const model = createModel();
-    const service = new ConversationsService(model as any);
+    const service = createService(model);
 
     const createdDoc = createDoc({
       type: ConversationType.Direct,
@@ -59,7 +66,7 @@ describe('ConversationsService', () => {
 
   it('creates a group conversation with creator as admin', async () => {
     const model = createModel();
-    const service = new ConversationsService(model as any);
+    const service = createService(model);
 
     const createdDoc = createDoc({
       type: ConversationType.Group,
@@ -86,7 +93,7 @@ describe('ConversationsService', () => {
 
   it('rejects create when user is not in participantIds', async () => {
     const model = createModel();
-    const service = new ConversationsService(model as any);
+    const service = createService(model);
 
     await expect(
       service.create('user-1', {
@@ -98,7 +105,7 @@ describe('ConversationsService', () => {
 
   it('findOrCreateDirect returns existing', async () => {
     const model = createModel();
-    const service = new ConversationsService(model as any);
+    const service = createService(model);
     const existing = createDoc({ type: ConversationType.Direct });
 
     model.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(existing) });
@@ -111,7 +118,7 @@ describe('ConversationsService', () => {
 
   it('blocks addParticipant for direct conversations', async () => {
     const model = createModel();
-    const service = new ConversationsService(model as any);
+    const service = createService(model);
     const conversation = createDoc({
       type: ConversationType.Direct,
       participants: [{ externalUserId: 'user-1', joinedAt: new Date() }],
@@ -127,7 +134,7 @@ describe('ConversationsService', () => {
 
   it('enforces admin-only removeParticipant in groups', async () => {
     const model = createModel();
-    const service = new ConversationsService(model as any);
+    const service = createService(model);
     const conversation = createDoc({
       type: ConversationType.Group,
       participants: [
@@ -146,7 +153,7 @@ describe('ConversationsService', () => {
 
   it('paginates conversations with cursor', async () => {
     const model = createModel();
-    const service = new ConversationsService(model as any);
+    const service = createService(model);
 
     const first = createDoc({ updatedAt: new Date('2025-01-02T00:00:00.000Z') });
     const second = createDoc({ updatedAt: new Date('2025-01-01T00:00:00.000Z') });
