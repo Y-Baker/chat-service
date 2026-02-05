@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { getConnectionToken } from '@nestjs/mongoose';
@@ -113,6 +113,13 @@ describe('Messages flow (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     wsAdapter = new RedisIoAdapter(app, redisUrl);
     await wsAdapter.connectToRedis();
     app.useWebSocketAdapter(wsAdapter);
@@ -518,6 +525,236 @@ describe('Messages flow (e2e)', () => {
 
     expect(withDeleted.body.data).toHaveLength(1);
     expect(withDeleted.body.data[0].isDeleted).toBe(true);
+  });
+
+  it('adds and removes reactions via REST', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const message = await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'react to me' })
+      .expect(201);
+
+    const addReaction = await request(app.getHttpServer())
+      .post(`/api/messages/${message.body._id}/reactions`)
+      .set(authHeader(USER_2.externalUserId))
+      .send({ emoji: '👍' })
+      .expect(201);
+
+    expect(addReaction.body.success).toBe(true);
+    expect(addReaction.body.reactions[0].emoji).toBe('👍');
+    expect(addReaction.body.reactions[0].userIds).toContain(USER_2.externalUserId);
+
+    const addAgain = await request(app.getHttpServer())
+      .post(`/api/messages/${message.body._id}/reactions`)
+      .set(authHeader(USER_2.externalUserId))
+      .send({ emoji: '👍' })
+      .expect(201);
+
+    expect(addAgain.body.reactions[0].userIds).toHaveLength(1);
+
+    const removeReaction = await request(app.getHttpServer())
+      .delete(`/api/messages/${message.body._id}/reactions/%F0%9F%91%8D`)
+      .set(authHeader(USER_2.externalUserId))
+      .expect(200);
+
+    expect(removeReaction.body.success).toBe(true);
+    expect(removeReaction.body.reactions).toHaveLength(0);
+  });
+
+  it('rejects invalid reaction emoji', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const message = await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'react to me' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/messages/${message.body._id}/reactions`)
+      .set(authHeader(USER_2.externalUserId))
+      .send({ emoji: '' })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post(`/api/messages/${message.body._id}/reactions`)
+      .set(authHeader(USER_2.externalUserId))
+      .send({ emoji: 'a'.repeat(25) })
+      .expect(400);
+  });
+
+  it('blocks non-participants from reacting', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const message = await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'react to me' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/messages/${message.body._id}/reactions`)
+      .set(authHeader(USER_3.externalUserId))
+      .send({ emoji: '👍' })
+      .expect(403);
+  });
+
+  it('marks messages as read and returns receipts', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const message = await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'read me' })
+      .expect(201);
+
+    const markRead = await request(app.getHttpServer())
+      .put(`/api/messages/${message.body._id}/read`)
+      .set(authHeader(USER_2.externalUserId))
+      .expect(200);
+
+    expect(markRead.body.success).toBe(true);
+    expect(markRead.body.readAt).toBeTruthy();
+
+    const receipts = await request(app.getHttpServer())
+      .get(`/api/messages/${message.body._id}/read`)
+      .set(authHeader(USER_1.externalUserId))
+      .expect(200);
+
+    expect(receipts.body.readBy).toHaveLength(1);
+    expect(receipts.body.readBy[0].userId).toBe(USER_2.externalUserId);
+  });
+
+  it('marks conversation as read up to a message id', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const message1 = await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'm1' })
+      .expect(201);
+
+    const message2 = await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'm2' })
+      .expect(201);
+
+    const message3 = await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'm3' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .put(`/api/conversations/${conversation._id}/read`)
+      .set(authHeader(USER_2.externalUserId))
+      .send({ upToMessageId: message2.body._id })
+      .expect(200);
+
+    const unread = await request(app.getHttpServer())
+      .get(`/api/conversations/${conversation._id}/unread-count`)
+      .set(authHeader(USER_2.externalUserId))
+      .expect(200);
+
+    expect(unread.body.unreadCount).toBe(1);
+
+    const receipts1 = await request(app.getHttpServer())
+      .get(`/api/messages/${message1.body._id}/read`)
+      .set(authHeader(USER_1.externalUserId))
+      .expect(200);
+    expect(receipts1.body.readCount).toBe(1);
+
+    const receipts2 = await request(app.getHttpServer())
+      .get(`/api/messages/${message2.body._id}/read`)
+      .set(authHeader(USER_1.externalUserId))
+      .expect(200);
+    expect(receipts2.body.readCount).toBe(1);
+
+    const receipts3 = await request(app.getHttpServer())
+      .get(`/api/messages/${message3.body._id}/read`)
+      .set(authHeader(USER_1.externalUserId))
+      .expect(200);
+    expect(receipts3.body.readCount).toBe(0);
+  });
+
+  it('returns zero markedCount for non-existent upToMessageId', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'm1' })
+      .expect(201);
+
+    const response = await request(app.getHttpServer())
+      .put(`/api/conversations/${conversation._id}/read`)
+      .set(authHeader(USER_2.externalUserId))
+      .send({ upToMessageId: '000000000000000000000000' })
+      .expect(200);
+
+    expect(response.body.markedCount).toBe(0);
+  });
+
+  it('tracks unread counts for conversations', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'unread' })
+      .expect(201);
+
+    const unread = await request(app.getHttpServer())
+      .get(`/api/conversations/${conversation._id}/unread-count`)
+      .set(authHeader(USER_2.externalUserId))
+      .expect(200);
+
+    expect(unread.body.unreadCount).toBe(1);
+
+    await request(app.getHttpServer())
+      .put(`/api/conversations/${conversation._id}/read`)
+      .set(authHeader(USER_2.externalUserId))
+      .send({})
+      .expect(200);
+
+    const unreadAfter = await request(app.getHttpServer())
+      .get(`/api/conversations/${conversation._id}/unread-count`)
+      .set(authHeader(USER_2.externalUserId))
+      .expect(200);
+
+    expect(unreadAfter.body.unreadCount).toBe(0);
+
+    const list = await request(app.getHttpServer())
+      .get('/api/conversations')
+      .set(authHeader(USER_2.externalUserId))
+      .expect(200);
+
+    const item = list.body.data.find((conv: { _id: string }) => conv._id === conversation._id);
+    expect(item.unreadCount).toBe(0);
   });
 
   it('connects with valid token and rejects invalid token', async () => {

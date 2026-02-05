@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { getConnectionToken } from '@nestjs/mongoose';
@@ -120,6 +120,13 @@ describe('WebSocket gateway (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     wsAdapter = new RedisIoAdapter(app, redisUrl);
     await wsAdapter.connectToRedis();
     app.useWebSocketAdapter(wsAdapter);
@@ -331,6 +338,88 @@ describe('WebSocket gateway (e2e)', () => {
     const deletedPayload = await deletedEvent;
     expect(deletedPayload.messageId).toBe(messageId);
     expect(deletedPayload.conversationId).toBe(conversation._id);
+
+    socket1.disconnect();
+    socket2.disconnect();
+  });
+
+  it('broadcasts reaction:add and reaction:remove', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const message = await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'React here' })
+      .expect(201);
+
+    const socket1 = await connectSocket(signToken(USER_1.externalUserId));
+    const socket2 = await connectSocket(signToken(USER_2.externalUserId));
+
+    const addedEvent = waitForEvent<any>(socket1, 'reaction:added');
+
+    const addAck = await emitWithAck<any>(socket2, 'reaction:add', {
+      messageId: message.body._id,
+      emoji: '👍',
+    });
+
+    expect(addAck.success).toBe(true);
+    const addedPayload = await addedEvent;
+    expect(addedPayload.messageId).toBe(message.body._id);
+    expect(addedPayload.emoji).toBe('👍');
+
+    const removedEvent = waitForEvent<any>(socket1, 'reaction:removed');
+
+    const removeAck = await emitWithAck<any>(socket2, 'reaction:remove', {
+      messageId: message.body._id,
+      emoji: '👍',
+    });
+
+    expect(removeAck.success).toBe(true);
+    const removedPayload = await removedEvent;
+    expect(removedPayload.messageId).toBe(message.body._id);
+    expect(removedPayload.emoji).toBe('👍');
+
+    socket1.disconnect();
+    socket2.disconnect();
+  });
+
+  it('broadcasts message:read and conversation:read', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const message = await request(app.getHttpServer())
+      .post(`/api/conversations/${conversation._id}/messages`)
+      .set(authHeader(USER_1.externalUserId))
+      .send({ content: 'Read me' })
+      .expect(201);
+
+    const socket1 = await connectSocket(signToken(USER_1.externalUserId));
+    const socket2 = await connectSocket(signToken(USER_2.externalUserId));
+
+    const readEvent = waitForEvent<any>(socket1, 'message:read');
+    const readAck = await emitWithAck<any>(socket2, 'message:read', {
+      messageId: message.body._id,
+    });
+
+    expect(readAck.success).toBe(true);
+    const readPayload = await readEvent;
+    expect(readPayload.messageId).toBe(message.body._id);
+    expect(readPayload.userId).toBe(USER_2.externalUserId);
+
+    const convReadEvent = waitForEvent<any>(socket1, 'conversation:read');
+    const convReadAck = await emitWithAck<any>(socket2, 'conversation:read', {
+      conversationId: conversation._id,
+    });
+
+    expect(convReadAck.success).toBe(true);
+    const convReadPayload = await convReadEvent;
+    expect(convReadPayload.conversationId).toBe(conversation._id);
+    expect(convReadPayload.userId).toBe(USER_2.externalUserId);
 
     socket1.disconnect();
     socket2.disconnect();
