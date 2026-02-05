@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  chat-service:
+    image: chat-service:latest
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    environment:
+      - MONGODB_URI=${CHAT_MONGODB_URI}
+      - REDIS_URL=${CHAT_REDIS_URL}
+      - AUTH_JWT_SECRET=${JWT_SECRET}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
+      - WEBHOOK_URL=http://your-api:3000/webhooks/chat
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - WEBHOOK_ENABLED=true
+      - ALLOWED_ORIGINS=https://your-domain.com
+    depends_on:
+      - chat-mongo
+      - chat-redis
+
+  chat-mongo:
+    image: mongo:7
+    volumes:
+      - chat-mongo-data:/data/db
+
+  chat-redis:
+    image: redis:7-alpine
+    volumes:
+      - chat-redis-data:/data
+
+volumes:
+  chat-mongo-data:
+  chat-redis-data:
