@@ -3,11 +3,14 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConversationsService } from '../conversations/conversations.service';
 import { UsersService } from '../users/users.service';
+import { ChatGateway } from '../gateway/chat.gateway';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { QueryMessagesDto } from './dto/query-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -50,6 +53,8 @@ export class MessagesService {
     private readonly messageModel: Model<MessageDocument>,
     private readonly conversationsService: ConversationsService,
     private readonly usersService: UsersService,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly chatGateway?: ChatGateway,
   ) {}
 
   async send(conversationId: string, senderId: string, dto: SendMessageDto): Promise<MessageWithSender> {
@@ -95,7 +100,9 @@ export class MessagesService {
       sentAt: message.createdAt ?? new Date(),
     });
 
-    return this.populateMessageWithSender(message);
+    const populated = await this.populateMessageWithSender(message);
+    this.chatGateway?.emitToConversation(conversationId, 'message:new', populated);
+    return populated;
   }
 
   async createSystemMessage(
@@ -124,7 +131,9 @@ export class MessagesService {
       sentAt: message.createdAt ?? new Date(),
     });
 
-    return this.populateMessageWithSender(message);
+    const populated = await this.populateMessageWithSender(message);
+    this.chatGateway?.emitToConversation(conversationId, 'message:new', populated);
+    return populated;
   }
 
   async findByConversation(conversationId: string, query: QueryMessagesDto): Promise<MessagesPage> {
@@ -209,7 +218,15 @@ export class MessagesService {
 
     await this.updateLastMessageIfNeeded(message);
 
-    return this.populateMessageWithSender(message);
+    const populated = await this.populateMessageWithSender(message);
+    this.chatGateway?.emitToConversation(message.conversationId.toString(), 'message:updated', {
+      messageId: message._id.toString(),
+      content: message.content,
+      isEdited: message.isEdited,
+      updatedAt: message.updatedAt,
+    });
+
+    return populated;
   }
 
   async delete(messageId: string, userId: string): Promise<{ deleted: true }> {
@@ -231,6 +248,11 @@ export class MessagesService {
     await message.save();
 
     await this.recalculateLastMessage(message.conversationId.toString());
+    this.chatGateway?.emitToConversation(message.conversationId.toString(), 'message:deleted', {
+      messageId: message._id.toString(),
+      conversationId: message.conversationId.toString(),
+      deletedAt: message.deletedAt.toISOString(),
+    });
 
     return { deleted: true };
   }
@@ -245,6 +267,11 @@ export class MessagesService {
     await message.deleteOne();
 
     await this.recalculateLastMessage(conversationId);
+    this.chatGateway?.emitToConversation(conversationId, 'message:deleted', {
+      messageId: message._id.toString(),
+      conversationId,
+      deletedAt: new Date().toISOString(),
+    });
   }
 
   async getContext(messageId: string, count: number): Promise<MessageWithSenderAndReply[]> {

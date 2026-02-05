@@ -3,6 +3,7 @@ import { Logger } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { RedisIoAdapter } from './gateway/adapters/redis-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -10,6 +11,11 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const logger = app.get(Logger);
+
+  const redisUrl = configService.getOrThrow<string>('redis.url');
+  const wsAdapter = new RedisIoAdapter(app, redisUrl);
+  await wsAdapter.connectToRedis();
+  app.useWebSocketAdapter(wsAdapter);
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -29,10 +35,12 @@ async function bootstrap() {
   });
 
   const port = configService.get<number>('app.port') ?? 3000;
+  const wsPort = configService.get<number>('app.wsPort') ?? 3001;
   await app.listen(port, '0.0.0.0');
 
   logger.log(`🚀 REST API running on: http://localhost:${port}`);
   logger.log(`📋 Health check: http://localhost:${port}/health`);
+  logger.log(`🧩 WebSocket running on: ws://localhost:${wsPort}`);
   logger.log(`🔒 CORS enabled for: ${allowedOrigins.join(', ') || '*'}`);
 }
 void bootstrap();

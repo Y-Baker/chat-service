@@ -4,6 +4,8 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -18,6 +20,7 @@ import {
   LastMessage,
 } from './schemas/conversation.schema';
 import { Participant, ParticipantRole } from './schemas/participant.schema';
+import { ChatGateway } from '../gateway/chat.gateway';
 
 export interface PaginatedConversations {
   data: Conversation[];
@@ -44,6 +47,8 @@ export class ConversationsService {
   constructor(
     @InjectModel(Conversation.name)
     private readonly conversationModel: Model<ConversationDocument>,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly chatGateway?: ChatGateway,
   ) {}
 
   async create(userId: string, dto: CreateConversationDto): Promise<Conversation> {
@@ -75,6 +80,10 @@ export class ConversationsService {
 
     try {
       const created = await this.conversationModel.create(payload);
+      await this.chatGateway?.notifyNewConversation(
+        created._id.toString(),
+        created.participantIds,
+      );
       return created.toObject();
     } catch (error) {
       if (this.isDuplicateKeyError(error) && dto.type === ConversationType.Direct) {
@@ -135,6 +144,15 @@ export class ConversationsService {
         nextCursor,
       },
     };
+  }
+
+  async findAllIdsForUser(userId: string): Promise<string[]> {
+    const results = await this.conversationModel
+      .find({ 'participants.externalUserId': userId })
+      .select({ _id: 1 })
+      .exec();
+
+    return results.map((conversation) => conversation._id.toString());
   }
 
   async findById(conversationId: string): Promise<Conversation | null> {
@@ -216,6 +234,7 @@ export class ConversationsService {
     ]);
 
     await conversation.save();
+    await this.chatGateway?.notifyUserAdded(conversationId, dto.externalUserId);
     return conversation;
   }
 
@@ -251,10 +270,12 @@ export class ConversationsService {
 
     if (conversation.participants.length === 0) {
       await conversation.deleteOne();
+      await this.chatGateway?.notifyUserRemoved(conversationId, targetUserId);
       return conversation;
     }
 
     await conversation.save();
+    await this.chatGateway?.notifyUserRemoved(conversationId, targetUserId);
     return conversation;
   }
 
@@ -312,10 +333,12 @@ export class ConversationsService {
 
     if (conversation.participants.length === 0) {
       await conversation.deleteOne();
+      await this.chatGateway?.notifyUserRemoved(conversationId, userId);
       return;
     }
 
     await conversation.save();
+    await this.chatGateway?.notifyUserRemoved(conversationId, userId);
   }
 
   async delete(conversationId: string, userId: string): Promise<void> {
