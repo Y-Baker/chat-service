@@ -36,6 +36,8 @@ export class RedisIoAdapter extends IoAdapter {
     try {
       await this.subClient?.quit();
       await this.pubClient?.quit();
+      this.subClient?.disconnect();
+      this.pubClient?.disconnect();
     } catch (error) {
       this.logger.warn('Failed to close Redis adapter clients', error as Error);
     }

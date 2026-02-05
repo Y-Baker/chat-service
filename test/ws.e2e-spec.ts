@@ -21,6 +21,7 @@ describe('WebSocket gateway (e2e)', () => {
   let redisClient: { quit: () => Promise<void>; on?: (event: string, cb: () => void) => void };
   let wsAdapter: RedisIoAdapter;
   let wsPort = 0;
+  const sockets: Socket[] = [];
 
   const jwtSecret = 'test-secret-should-be-32-characters-long';
   const jwtIssuer = 'master-service';
@@ -56,13 +57,20 @@ describe('WebSocket gateway (e2e)', () => {
     return response.body;
   };
 
+  const trackSocket = (socket: Socket) => {
+    sockets.push(socket);
+    return socket;
+  };
+
   const connectSocket = (token: string) =>
     new Promise<Socket>((resolve, reject) => {
-      const socket = io(`http://localhost:${wsPort}`, {
-        auth: { token },
-        transports: ['websocket'],
-        reconnection: false,
-      });
+      const socket = trackSocket(
+        io(`http://localhost:${wsPort}`, {
+          auth: { token },
+          transports: ['websocket'],
+          reconnection: false,
+        }),
+      );
 
       const timeout = setTimeout(() => {
         socket.disconnect();
@@ -154,6 +162,19 @@ describe('WebSocket gateway (e2e)', () => {
     await syncUser(USER_2);
   });
 
+  afterEach(() => {
+    sockets.splice(0).forEach((socket) => {
+      socket.removeAllListeners();
+      try {
+        socket.disconnect();
+        (socket as any).close?.();
+        (socket as any).io?.engine?.close?.();
+      } catch {
+        // ignore socket cleanup errors
+      }
+    });
+  });
+
   afterAll(async () => {
     if (app) {
       await app.close();
@@ -175,6 +196,7 @@ describe('WebSocket gateway (e2e)', () => {
       }
     }
     await connection.close();
+    await new Promise((resolve) => setTimeout(resolve, 200));
   });
 
   it('connects with valid token and rejects invalid token', async () => {
@@ -182,11 +204,13 @@ describe('WebSocket gateway (e2e)', () => {
     expect(socket.connected).toBe(true);
     socket.disconnect();
 
-    const badSocket = io(`http://localhost:${wsPort}`, {
-      auth: { token: 'bad-token' },
-      transports: ['websocket'],
-      reconnection: false,
-    });
+    const badSocket = trackSocket(
+      io(`http://localhost:${wsPort}`, {
+        auth: { token: 'bad-token' },
+        transports: ['websocket'],
+        reconnection: false,
+      }),
+    );
 
     const error = await Promise.race([
       waitForEvent<{ code: string }>(badSocket, 'error'),
@@ -537,6 +561,33 @@ describe('WebSocket gateway (e2e)', () => {
     const recStopPayload = await recordingStop;
     expect(recStopPayload.userId).toBe(USER_2.externalUserId);
     expect(recStopPayload.isActive).toBe(false);
+
+    socket1.disconnect();
+    socket2.disconnect();
+  });
+
+  it('does not echo typing indicator back to sender', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    const socket1 = await connectSocket(signToken(USER_1.externalUserId));
+    const socket2 = await connectSocket(signToken(USER_2.externalUserId));
+
+    const selfReceived = new Promise<boolean>((resolve) => {
+      const timeout = setTimeout(() => resolve(false), 500);
+      socket2.once('user:typing', () => {
+        clearTimeout(timeout);
+        resolve(true);
+      });
+    });
+
+    const otherReceived = waitForEvent<any>(socket1, 'user:typing');
+    await emitWithAck<any>(socket2, 'typing:start', { conversationId: conversation._id });
+
+    expect(await otherReceived).toBeTruthy();
+    expect(await selfReceived).toBe(false);
 
     socket1.disconnect();
     socket2.disconnect();

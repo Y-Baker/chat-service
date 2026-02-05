@@ -20,6 +20,7 @@ describe('Messages flow (e2e)', () => {
   let connection: Connection;
   let redisClient: { quit: () => Promise<void> };
   let wsAdapter: RedisIoAdapter;
+  const sockets: Socket[] = [];
 
   const jwtSecret = 'test-secret-should-be-32-characters-long';
   const jwtIssuer = 'master-service';
@@ -56,13 +57,20 @@ describe('Messages flow (e2e)', () => {
     return response.body;
   };
 
+  const trackSocket = (socket: Socket) => {
+    sockets.push(socket);
+    return socket;
+  };
+
   const connectSocket = (token: string) =>
     new Promise<Socket>((resolve, reject) => {
-      const socket = io(`http://localhost:${wsPort}`, {
-        auth: { token },
-        transports: ['websocket'],
-        reconnection: false,
-      });
+      const socket = trackSocket(
+        io(`http://localhost:${wsPort}`, {
+          auth: { token },
+          transports: ['websocket'],
+          reconnection: false,
+        }),
+      );
 
       const timeout = setTimeout(() => {
         socket.disconnect();
@@ -147,6 +155,19 @@ describe('Messages flow (e2e)', () => {
     await syncUser(USER_1);
     await syncUser(USER_2);
     await syncUser(USER_3);
+  });
+
+  afterEach(() => {
+    sockets.splice(0).forEach((socket) => {
+      socket.removeAllListeners();
+      try {
+        socket.disconnect();
+        (socket as any).close?.();
+        (socket as any).io?.engine?.close?.();
+      } catch {
+        // ignore socket cleanup errors
+      }
+    });
   });
 
   it('sends, replies, edits, deletes, and fetches messages', async () => {
@@ -765,11 +786,13 @@ describe('Messages flow (e2e)', () => {
     expect(socket.connected).toBe(true);
     socket.disconnect();
 
-    const badSocket = io(`http://localhost:${wsPort}`, {
-      auth: { token: 'bad-token' },
-      transports: ['websocket'],
-      reconnection: false,
-    });
+    const badSocket = trackSocket(
+      io(`http://localhost:${wsPort}`, {
+        auth: { token: 'bad-token' },
+        transports: ['websocket'],
+        reconnection: false,
+      }),
+    );
 
     const error = await new Promise<{ code: string }>((resolve) => {
       badSocket.on('error', (payload) => resolve(payload));
@@ -883,6 +906,22 @@ describe('Messages flow (e2e)', () => {
     socket.disconnect();
   });
 
+  it('returns offline presence after disconnect', async () => {
+    const socket = await connectSocket(signToken(USER_1.externalUserId));
+    socket.disconnect();
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const presence = await request(app.getHttpServer())
+      .get(`/api/users/${USER_1.externalUserId}/presence`)
+      .set(authHeader(USER_2.externalUserId))
+      .expect(200);
+
+    expect(presence.body.userId).toBe(USER_1.externalUserId);
+    expect(presence.body.status).toBe('offline');
+    expect(presence.body.lastSeen).toBeTruthy();
+  });
+
   it('returns conversation presence with typing and recording indicators', async () => {
     const conversation = await createConversation(USER_1.externalUserId, [
       USER_1.externalUserId,
@@ -912,6 +951,111 @@ describe('Messages flow (e2e)', () => {
     socket2.disconnect();
   });
 
+  it('returns away status when lastActivity exceeds threshold', async () => {
+    const oldTimestamp = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    if (redisClient && (redisClient as any).pipeline) {
+      await (redisClient as any)
+        .pipeline()
+        .sadd('ws:online', USER_1.externalUserId)
+        .hset(
+          `presence:${USER_1.externalUserId}`,
+          'status',
+          'online',
+          'lastActivity',
+          oldTimestamp,
+          'connectedAt',
+          oldTimestamp,
+        )
+        .exec();
+    }
+
+    const presence = await request(app.getHttpServer())
+      .get(`/api/users/${USER_1.externalUserId}/presence`)
+      .set(authHeader(USER_2.externalUserId))
+      .expect(200);
+
+    expect(presence.body.status).toBe('away');
+    expect(presence.body.lastActivity).toBeTruthy();
+  });
+
+  it('excludes expired typing indicators from conversation presence', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+    ]);
+
+    if (redisClient && (redisClient as any).set) {
+      await (redisClient as any).set(
+        `typing:${conversation._id}:${USER_1.externalUserId}`,
+        '1',
+        'EX',
+        1,
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+
+    const presence = await request(app.getHttpServer())
+      .get(`/api/conversations/${conversation._id}/presence`)
+      .set(authHeader(USER_1.externalUserId))
+      .expect(200);
+
+    expect(presence.body.typingUsers).not.toContain(USER_1.externalUserId);
+  });
+
+  it('returns mixed presence counts for conversation participants', async () => {
+    const conversation = await createConversation(USER_1.externalUserId, [
+      USER_1.externalUserId,
+      USER_2.externalUserId,
+      USER_3.externalUserId,
+    ]);
+
+    const now = new Date().toISOString();
+    const old = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+    if (redisClient && (redisClient as any).pipeline) {
+      await (redisClient as any)
+        .pipeline()
+        .sadd('ws:online', USER_1.externalUserId)
+        .sadd('ws:online', USER_2.externalUserId)
+        .hset(
+          `presence:${USER_1.externalUserId}`,
+          'status',
+          'online',
+          'lastActivity',
+          now,
+          'connectedAt',
+          now,
+        )
+        .hset(
+          `presence:${USER_2.externalUserId}`,
+          'status',
+          'online',
+          'lastActivity',
+          old,
+          'connectedAt',
+          old,
+        )
+        .exec();
+    }
+
+    const presence = await request(app.getHttpServer())
+      .get(`/api/conversations/${conversation._id}/presence`)
+      .set(authHeader(USER_1.externalUserId))
+      .expect(200);
+
+    expect(presence.body.onlineCount).toBe(1);
+    expect(presence.body.awayCount).toBe(1);
+  });
+
+  it('rejects empty batch presence requests', async () => {
+    await request(app.getHttpServer())
+      .post('/api/presence/batch')
+      .set(authHeader(USER_1.externalUserId))
+      .send({ userIds: [] })
+      .expect(400);
+  });
+
   afterAll(async () => {
     if (app) {
       await app.close();
@@ -935,5 +1079,6 @@ describe('Messages flow (e2e)', () => {
     if (connection) {
       await connection.close();
     }
+    await new Promise((resolve) => setTimeout(resolve, 200));
   });
 });
