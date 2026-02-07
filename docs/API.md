@@ -6,6 +6,13 @@ Base URL (development): `http://localhost:3000/api`
 All public endpoints require `Authorization: Bearer <jwt>`.
 Internal endpoints require `X-Internal-Secret: <secret>`.
 
+For REST authentication, the service resolves user identity from JWT claims in this order:
+1. `externalUserId`
+2. `sub`
+3. `id`
+
+The selected value must be a non-empty string after trimming whitespace; otherwise the request is rejected with `401 Unauthorized`.
+
 ## Error Format
 ```json
 {

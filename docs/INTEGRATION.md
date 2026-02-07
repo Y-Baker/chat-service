@@ -23,6 +23,9 @@ If you use external MongoDB/Redis, omit the profile and set `MONGODB_URI` and `R
 - `AUTH_JWT_SECRET` must match the master service JWT secret.
 - `AUTH_JWT_ISSUER` should match the token issuer.
 - Set `INTERNAL_API_SECRET` for server-to-server calls.
+- Include `externalUserId` as a non-empty string in JWT payloads (recommended for both REST and WebSocket).
+- REST compatibility fallback: if `externalUserId` is missing, REST accepts `sub`, then `id` (must still be a non-empty string).
+- WebSocket authentication currently resolves user id from `externalUserId`, then `sub`.
 
 ## Step 3: Sync Users
 Call internal endpoints from master on user create/update:

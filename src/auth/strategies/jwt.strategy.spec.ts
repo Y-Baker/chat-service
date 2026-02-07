@@ -31,6 +31,21 @@ describe('JwtStrategy', () => {
     expect(result.externalUserId).toBe('user-2');
   });
 
+  it('falls back to payload.id when externalUserId and sub are missing', () => {
+    const strategy = new JwtStrategy(makeConfigService());
+
+    const result = strategy.validate({ id: 'user-3' });
+
+    expect(result.externalUserId).toBe('user-3');
+  });
+
+  it('throws when external user id candidate is not a non-empty string', () => {
+    const strategy = new JwtStrategy(makeConfigService());
+
+    expect(() => strategy.validate({ id: 123 })).toThrow(UnauthorizedException);
+    expect(() => strategy.validate({ externalUserId: '   ' })).toThrow(UnauthorizedException);
+  });
+
   it('throws when no externalUserId or sub is present', () => {
     const strategy = new JwtStrategy(makeConfigService());
 
