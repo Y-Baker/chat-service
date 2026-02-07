@@ -17,7 +17,13 @@ import { WebhookEventType } from '../webhooks/enums/webhook-event-type.enum';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { QueryMessagesDto } from './dto/query-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
-import { Message, MessageDocument, MessageType, Reaction, ReadReceipt } from './schemas/message.schema';
+import {
+  Message,
+  MessageDocument,
+  MessageType,
+  Reaction,
+  ReadReceipt,
+} from './schemas/message.schema';
 
 export type MessageWithSender = Omit<Message, 'reactions' | 'readBy'> & {
   sender: {
@@ -72,7 +78,11 @@ export class MessagesService {
     private readonly webhooksService?: WebhooksService,
   ) {}
 
-  async send(conversationId: string, senderId: string, dto: SendMessageDto): Promise<MessageWithSender> {
+  async send(
+    conversationId: string,
+    senderId: string,
+    dto: SendMessageDto,
+  ): Promise<MessageWithSender> {
     const conversation = await this.conversationsService.findById(conversationId);
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
@@ -399,7 +409,9 @@ export class MessagesService {
   }
 
   private async updateLastMessageIfNeeded(message: MessageDocument): Promise<void> {
-    const conversation = await this.conversationsService.findById(message.conversationId.toString());
+    const conversation = await this.conversationsService.findById(
+      message.conversationId.toString(),
+    );
     if (!conversation?.lastMessage?.messageId) {
       return;
     }
@@ -439,7 +451,8 @@ export class MessagesService {
     message: MessageDocument | Message,
     currentUserId?: string,
   ): Promise<MessageWithSender> {
-    const plain = typeof (message as any).toObject === 'function' ? (message as any).toObject() : message;
+    const plain =
+      typeof (message as any).toObject === 'function' ? (message as any).toObject() : message;
     const profile = await this.usersService.findByExternalId(plain.senderId);
 
     return {
@@ -454,7 +467,10 @@ export class MessagesService {
     } as MessageWithSender;
   }
 
-  private async populateMessages(messages: Message[], currentUserId?: string): Promise<MessageWithSender[]> {
+  private async populateMessages(
+    messages: Message[],
+    currentUserId?: string,
+  ): Promise<MessageWithSender[]> {
     if (!messages.length) {
       return [];
     }
@@ -500,15 +516,19 @@ export class MessagesService {
     }));
 
     return {
-      ...(message as Message),
+      ...message,
       reactions,
       readBy,
       readCount: readBy.length,
-      ...(currentUserId ? { isReadByMe: readBy.some((entry) => entry.userId === currentUserId) } : {}),
+      ...(currentUserId
+        ? { isReadByMe: readBy.some((entry) => entry.userId === currentUserId) }
+        : {}),
     };
   }
 
-  private async attachReplyContext(messages: MessageWithSender[]): Promise<MessageWithSenderAndReply[]> {
+  private async attachReplyContext(
+    messages: MessageWithSender[],
+  ): Promise<MessageWithSenderAndReply[]> {
     const replyIds = messages
       .map((message) => message.replyTo)
       .filter((id): id is Types.ObjectId => Boolean(id));
@@ -517,9 +537,7 @@ export class MessagesService {
       return messages as MessageWithSenderAndReply[];
     }
 
-    const parents = await this.messageModel
-      .find({ _id: { $in: replyIds } })
-      .lean();
+    const parents = await this.messageModel.find({ _id: { $in: replyIds } }).lean();
 
     const parentMap = new Map(parents.map((parent) => [parent._id.toString(), parent]));
     const senderIds = Array.from(new Set(parents.map((parent) => parent.senderId)));

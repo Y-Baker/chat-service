@@ -26,7 +26,7 @@ describe('UsersController', () => {
       displayName: 'User One',
     });
 
-    expect(service.sync).toHaveBeenCalled();
+    expect(serviceMock.sync).toHaveBeenCalled();
     expect(result).toEqual({ externalUserId: 'user-1' });
   });
 
@@ -37,7 +37,7 @@ describe('UsersController', () => {
       users: [{ externalUserId: 'user-1', displayName: 'User One' }],
     });
 
-    expect(service.syncBatch).toHaveBeenCalled();
+    expect(serviceMock.syncBatch).toHaveBeenCalled();
     expect(result).toEqual([{ externalUserId: 'user-1' }]);
   });
 
@@ -46,7 +46,7 @@ describe('UsersController', () => {
 
     const result = await controller.getByExternalId('user-1');
 
-    expect(service.findByExternalId).toHaveBeenCalledWith('user-1');
+    expect(serviceMock.findByExternalId).toHaveBeenCalledWith('user-1');
     expect(result).toEqual({ externalUserId: 'user-1' });
   });
 
@@ -55,7 +55,7 @@ describe('UsersController', () => {
 
     const result = await controller.remove('user-1');
 
-    expect(service.remove).toHaveBeenCalledWith('user-1');
+    expect(serviceMock.remove).toHaveBeenCalledWith('user-1');
     expect(result).toEqual({ externalUserId: 'user-1', isActive: false });
   });
 });

@@ -257,19 +257,19 @@ describe('Messages flow (e2e)', () => {
       USER_2.externalUserId,
     ]);
 
-    const message1 = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post(`/api/conversations/${conversation._id}/messages`)
       .set(authHeader(USER_1.externalUserId))
       .send({ content: 'm1' })
       .expect(201);
 
-    const message2 = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post(`/api/conversations/${conversation._id}/messages`)
       .set(authHeader(USER_1.externalUserId))
       .send({ content: 'm2' })
       .expect(201);
 
-    const message3 = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post(`/api/conversations/${conversation._id}/messages`)
       .set(authHeader(USER_1.externalUserId))
       .send({ content: 'm3' })
@@ -332,10 +332,12 @@ describe('Messages flow (e2e)', () => {
       .expect(200);
 
     const user2 = refreshed.body.participants.find(
-      (participant: { externalUserId: string }) => participant.externalUserId === USER_2.externalUserId,
+      (participant: { externalUserId: string }) =>
+        participant.externalUserId === USER_2.externalUserId,
     );
     const user3 = refreshed.body.participants.find(
-      (participant: { externalUserId: string }) => participant.externalUserId === USER_3.externalUserId,
+      (participant: { externalUserId: string }) =>
+        participant.externalUserId === USER_3.externalUserId,
     );
 
     expect(user2.role).toBe('admin');
@@ -429,10 +431,12 @@ describe('Messages flow (e2e)', () => {
       .expect(200);
 
     const user2 = refreshed.body.participants.find(
-      (participant: { externalUserId: string }) => participant.externalUserId === USER_2.externalUserId,
+      (participant: { externalUserId: string }) =>
+        participant.externalUserId === USER_2.externalUserId,
     );
     const user3 = refreshed.body.participants.find(
-      (participant: { externalUserId: string }) => participant.externalUserId === USER_3.externalUserId,
+      (participant: { externalUserId: string }) =>
+        participant.externalUserId === USER_3.externalUserId,
     );
 
     expect(user2.role).toBe('admin');
@@ -896,9 +900,7 @@ describe('Messages flow (e2e)', () => {
       .send({ userIds: [USER_1.externalUserId, USER_3.externalUserId] })
       .expect(201);
 
-    const byId = new Map(
-      batch.body.presences.map((p: { userId: string }) => [p.userId, p]),
-    );
+    const byId = new Map(batch.body.presences.map((p: { userId: string }) => [p.userId, p]));
 
     expect(byId.get(USER_1.externalUserId)?.status).toBe('online');
     expect(byId.get(USER_3.externalUserId)?.status).toBe('offline');

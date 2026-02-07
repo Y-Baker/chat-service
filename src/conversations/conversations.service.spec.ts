@@ -31,11 +31,9 @@ describe('ConversationsService', () => {
   });
 
   const createService = (model: ReturnType<typeof createModel>) =>
-    new ConversationsService(
-      model as any,
-      undefined,
-      { getUnreadCounts: jest.fn().mockResolvedValue(new Map()) } as any,
-    );
+    new ConversationsService(model as any, undefined, {
+      getUnreadCounts: jest.fn().mockResolvedValue(new Map()),
+    } as any);
 
   it('creates a direct conversation with no roles', async () => {
     const model = createModel();
@@ -106,14 +104,43 @@ describe('ConversationsService', () => {
   it('findOrCreateDirect returns existing', async () => {
     const model = createModel();
     const service = createService(model);
-    const existing = createDoc({ type: ConversationType.Direct });
+    const existing = createDoc({
+      type: ConversationType.Direct,
+      participantIds: ['user-1', 'user-2'],
+      participants: [
+        { externalUserId: 'user-1', joinedAt: new Date() },
+        { externalUserId: 'user-2', joinedAt: new Date() },
+      ],
+    });
 
     model.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(existing) });
 
     const result = await service.findOrCreateDirect('user-1', 'user-2');
 
-    expect(result).toBe(existing);
+    expect(result).toMatchObject({ type: ConversationType.Direct });
     expect(model.create).not.toHaveBeenCalled();
+  });
+
+  it('findOrCreateDirect updates existing metadata when provided', async () => {
+    const model = createModel();
+    const service = createService(model);
+    const existing = createDoc({
+      type: ConversationType.Direct,
+      metadata: { theme: 'light' },
+      save: jest.fn().mockResolvedValue(undefined),
+    });
+
+    model.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(existing) });
+
+    const result = await service.findOrCreateDirect('user-1', 'user-2', {
+      theme: 'dark',
+      pinned: true,
+    });
+
+    expect(existing.save).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      metadata: { theme: 'dark', pinned: true },
+    });
   });
 
   it('blocks addParticipant for direct conversations', async () => {
@@ -146,9 +173,9 @@ describe('ConversationsService', () => {
 
     model.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(conversation) });
 
-    await expect(
-      service.removeParticipant('conv-1', 'user-1', 'user-2'),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.removeParticipant('conv-1', 'user-1', 'user-2')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('paginates conversations with cursor', async () => {

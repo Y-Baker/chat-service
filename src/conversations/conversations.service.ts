@@ -86,10 +86,7 @@ export class ConversationsService {
 
     try {
       const created = await this.conversationModel.create(payload);
-      await this.chatGateway?.notifyNewConversation(
-        created._id.toString(),
-        created.participantIds,
-      );
+      await this.chatGateway?.notifyNewConversation(created._id.toString(), created.participantIds);
       await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_CREATED, {
         conversationId: created._id.toString(),
         type: created.type,
@@ -110,7 +107,10 @@ export class ConversationsService {
     }
   }
 
-  async findAllForUser(userId: string, query: QueryConversationsDto): Promise<PaginatedConversations> {
+  async findAllForUser(
+    userId: string,
+    query: QueryConversationsDto,
+  ): Promise<PaginatedConversations> {
     const limit = query.limit ?? 20;
     const filter: Record<string, unknown> = {
       'participants.externalUserId': userId,
@@ -449,7 +449,7 @@ export class ConversationsService {
     }
 
     await conversation.deleteOne();
-    await this.deleteMessagesForConversation(conversationId);
+    this.deleteMessagesForConversation(conversationId);
     await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_DELETED, {
       conversationId,
       type: conversation.type,
@@ -571,9 +571,7 @@ export class ConversationsService {
   }
 
   private isParticipantInConversation(conversation: ConversationDocument, userId: string): boolean {
-    return conversation.participants.some(
-      (participant) => participant.externalUserId === userId,
-    );
+    return conversation.participants.some((participant) => participant.externalUserId === userId);
   }
 
   private isAdminInConversation(conversation: ConversationDocument, userId: string): boolean {
@@ -615,10 +613,12 @@ export class ConversationsService {
   }
 
   private isDuplicateKeyError(error: unknown): boolean {
-    return Boolean(error && typeof error === 'object' && 'code' in error && (error as any).code === 11000);
+    return Boolean(
+      error && typeof error === 'object' && 'code' in error && (error as any).code === 11000,
+    );
   }
 
-  private async deleteMessagesForConversation(conversationId: string): Promise<void> {
+  private deleteMessagesForConversation(conversationId: string): void {
     void conversationId;
     // TODO: wire message deletion once MessagesService exists.
   }

@@ -7,10 +7,7 @@ import {
   DEFAULT_RECORDING_TTL,
   DEFAULT_TYPING_TTL,
 } from './constants/presence.constants';
-import {
-  ConversationPresence,
-  UserPresence,
-} from './interfaces/presence-status.interface';
+import { ConversationPresence, UserPresence } from './interfaces/presence-status.interface';
 
 interface PresenceHash {
   status?: string;
@@ -31,8 +28,7 @@ export class PresenceService {
     @Inject(REDIS_CLIENT) private readonly redis: any,
     private readonly configService: ConfigService,
   ) {
-    this.typingTtl =
-      this.configService.get<number>('presence.typingTtl') ?? DEFAULT_TYPING_TTL;
+    this.typingTtl = this.configService.get<number>('presence.typingTtl') ?? DEFAULT_TYPING_TTL;
     this.recordingTtl =
       this.configService.get<number>('presence.recordingTtl') ?? DEFAULT_RECORDING_TTL;
     this.awayThreshold =
@@ -45,7 +41,15 @@ export class PresenceService {
     const now = new Date().toISOString();
     const pipeline = this.redis.pipeline();
     pipeline.sadd('ws:online', userId);
-    pipeline.hset(`presence:${userId}`, 'status', 'online', 'lastActivity', now, 'connectedAt', now);
+    pipeline.hset(
+      `presence:${userId}`,
+      'status',
+      'online',
+      'lastActivity',
+      now,
+      'connectedAt',
+      now,
+    );
     pipeline.del(`lastseen:${userId}`);
     try {
       await pipeline.exec();
@@ -113,9 +117,9 @@ export class PresenceService {
       return [];
     }
 
-    const onlineStatuses = await this.redis.pipeline(
-      userIds.map((userId: string) => ['sismember', 'ws:online', userId]),
-    ).exec();
+    const onlineStatuses = await this.redis
+      .pipeline(userIds.map((userId: string) => ['sismember', 'ws:online', userId]))
+      .exec();
 
     const onlineMap = new Map<string, boolean>();
     onlineStatuses.forEach(([, value]: [unknown, any], index: number) => {
@@ -126,9 +130,9 @@ export class PresenceService {
 
     const onlineIds = userIds.filter((id) => onlineMap.get(id));
     if (onlineIds.length) {
-      const presenceResults = await this.redis.pipeline(
-        onlineIds.map((id) => ['hgetall', `presence:${id}`]),
-      ).exec();
+      const presenceResults = await this.redis
+        .pipeline(onlineIds.map((id) => ['hgetall', `presence:${id}`]))
+        .exec();
       presenceResults.forEach(([, value]: [unknown, PresenceHash], index: number) => {
         const userId = onlineIds[index];
         const lastActivity = value?.lastActivity ? new Date(value.lastActivity) : null;
@@ -143,9 +147,9 @@ export class PresenceService {
 
     const offlineIds = userIds.filter((id) => !onlineMap.get(id));
     if (offlineIds.length) {
-      const lastSeenResults = await this.redis.pipeline(
-        offlineIds.map((id) => ['get', `lastseen:${id}`]),
-      ).exec();
+      const lastSeenResults = await this.redis
+        .pipeline(offlineIds.map((id) => ['get', `lastseen:${id}`]))
+        .exec();
       lastSeenResults.forEach(([, value]: [unknown, string | null], index: number) => {
         const userId = offlineIds[index];
         presences.push({

@@ -1,7 +1,5 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { ConversationsService } from '../conversations/conversations.service';
-import { UsersService } from '../users/users.service';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { QueryMessagesDto } from './dto/query-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -55,7 +53,11 @@ describe('MessagesService', () => {
 
     conversationsService.findById.mockResolvedValue({ participants: [] });
 
-    const service = new MessagesService(model as any, conversationsService as any, usersService as any);
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+    );
 
     await expect(
       service.send(conversationId, 'user-1', { content: 'hi' } as SendMessageDto),
@@ -87,14 +89,62 @@ describe('MessagesService', () => {
       avatarUrl: 'a',
     });
 
-    const service = new MessagesService(model as any, conversationsService as any, usersService as any);
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+    );
 
     const result = await service.send(conversationId, 'user-1', {
       content: 'Hello world',
     } as SendMessageDto);
 
+    expect(model.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: {},
+      }),
+    );
     expect(conversationsService.updateLastMessage).toHaveBeenCalled();
     expect(result.sender?.displayName).toBe('User 1');
+  });
+
+  it('send persists provided metadata', async () => {
+    const model = createModel();
+    const conversationsService = createConversationService();
+    const usersService = createUsersService();
+    const conversationId = new Types.ObjectId().toString();
+
+    const conversation = {
+      participants: [{ externalUserId: 'user-1' }],
+    };
+
+    const message = makeMessageDoc({
+      senderId: 'user-1',
+      content: 'Hello world',
+    });
+
+    conversationsService.findById.mockResolvedValue(conversation);
+    model.create.mockResolvedValue(message);
+    usersService.findByExternalId.mockResolvedValue({
+      externalUserId: 'user-1',
+    });
+
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+    );
+
+    await service.send(conversationId, 'user-1', {
+      content: 'Hello world',
+      metadata: { source: 'mobile' },
+    } as SendMessageDto);
+
+    expect(model.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { source: 'mobile' },
+      }),
+    );
   });
 
   it('createSystemMessage creates system message and updates lastMessage', async () => {
@@ -113,7 +163,11 @@ describe('MessagesService', () => {
     model.create.mockResolvedValue(message);
     usersService.findByExternalId.mockResolvedValue(null);
 
-    const service = new MessagesService(model as any, conversationsService as any, usersService as any);
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+    );
 
     const result = await service.createSystemMessage(conversationId, 'User joined');
 
@@ -147,9 +201,15 @@ describe('MessagesService', () => {
       { externalUserId: 'user-2' },
     ]);
 
-    const service = new MessagesService(model as any, conversationsService as any, usersService as any);
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+    );
 
-    const result = await service.findByConversation(conversationId, { limit: 1 } as QueryMessagesDto);
+    const result = await service.findByConversation(conversationId, {
+      limit: 1,
+    } as QueryMessagesDto);
 
     expect(result.pagination.hasMore).toBe(true);
     expect(result.pagination.newestId).toBe(msg2._id.toString());
@@ -163,7 +223,11 @@ describe('MessagesService', () => {
     const message = makeMessageDoc({ senderId: 'user-1' });
     model.findById.mockResolvedValue(message);
 
-    const service = new MessagesService(model as any, conversationsService as any, usersService as any);
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+    );
 
     await expect(
       service.edit('msg-1', 'user-2', { content: 'new' } as EditMessageDto),
@@ -179,7 +243,11 @@ describe('MessagesService', () => {
     model.findById.mockResolvedValue(message);
     model.findOne.mockReturnValue({ sort: jest.fn().mockResolvedValue(null) });
 
-    const service = new MessagesService(model as any, conversationsService as any, usersService as any);
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+    );
 
     const result = await service.delete('msg-1', 'user-1');
 
@@ -230,7 +298,11 @@ describe('MessagesService', () => {
       { externalUserId: 'user-2', displayName: 'User 2' },
     ]);
 
-    const service = new MessagesService(model as any, conversationsService as any, usersService as any);
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+    );
 
     const result = await service.getContext(target._id.toString(), 1);
 
@@ -251,10 +323,16 @@ describe('MessagesService', () => {
       content: 'child',
     } as any;
 
-    model.findById.mockReturnValue({ lean: jest.fn().mockResolvedValue({ _id: replyId, isDeleted: true }) });
+    model.findById.mockReturnValue({
+      lean: jest.fn().mockResolvedValue({ _id: replyId, isDeleted: true }),
+    });
     usersService.findByExternalId.mockResolvedValue({ externalUserId: 'user-1' });
 
-    const service = new MessagesService(model as any, conversationsService as any, usersService as any);
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+    );
 
     const populated = await service.populateMessageWithSender(message);
     const result = await service.populateReplyPreview(populated);
@@ -269,7 +347,11 @@ describe('MessagesService', () => {
 
     model.findById.mockResolvedValue(null);
 
-    const service = new MessagesService(model as any, conversationsService as any, usersService as any);
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+    );
 
     await expect(service.hardDelete('missing')).rejects.toBeInstanceOf(NotFoundException);
   });

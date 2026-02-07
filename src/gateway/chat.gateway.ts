@@ -1,10 +1,4 @@
-import {
-  Logger,
-  UseFilters,
-  UsePipes,
-  ValidationPipe,
-  OnModuleDestroy,
-} from '@nestjs/common';
+import { Logger, UseFilters, UsePipes, ValidationPipe, OnModuleDestroy } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -45,11 +39,7 @@ interface JwtPayload {
 
 const envWsPort = process.env.WS_PORT ? parseInt(process.env.WS_PORT, 10) : undefined;
 const wsPort =
-  process.env.NODE_ENV === 'test'
-    ? undefined
-    : Number.isFinite(envWsPort)
-      ? envWsPort
-      : 3001;
+  process.env.NODE_ENV === 'test' ? undefined : Number.isFinite(envWsPort) ? envWsPort : 3001;
 
 const gatewayOptions = {
   cors: {
@@ -63,7 +53,9 @@ const gatewayOptions = {
 };
 
 const GatewayDecorator =
-  wsPort === undefined ? WebSocketGateway(gatewayOptions) : WebSocketGateway(wsPort, gatewayOptions);
+  wsPort === undefined
+    ? WebSocketGateway(gatewayOptions)
+    : WebSocketGateway(wsPort, gatewayOptions);
 
 @UseFilters(WsExceptionFilter)
 @UsePipes(
@@ -125,7 +117,7 @@ export class ChatGateway
       timestamp: new Date().toISOString(),
     });
 
-    await this.broadcastUserOnline(socket);
+    this.broadcastUserOnline(socket);
     await this.webhooksService.emitEvent(WebhookEventType.USER_ONLINE, {
       userId: user.externalUserId,
       socketId: socket.id,
@@ -166,7 +158,7 @@ export class ChatGateway
           timestamp: new Date().toISOString(),
         });
       });
-      await this.broadcastUserOffline(socket, lastSeen);
+      this.broadcastUserOffline(socket, lastSeen);
       await this.webhooksService.emitEvent(WebhookEventType.USER_OFFLINE, {
         userId,
         socketId: socket.id,
@@ -187,7 +179,10 @@ export class ChatGateway
 
     const isParticipant = await this.conversationsService.isParticipant(dto.conversationId, userId);
     if (!isParticipant) {
-      throw new WsException({ code: 'FORBIDDEN', message: 'Not a participant in this conversation' });
+      throw new WsException({
+        code: 'FORBIDDEN',
+        message: 'Not a participant in this conversation',
+      });
     }
 
     const message = await this.messagesService.send(dto.conversationId, userId, {
@@ -207,7 +202,9 @@ export class ChatGateway
     @MessageBody() dto: WsEditMessageDto,
   ) {
     const userId = socket.user.externalUserId;
-    const message = await this.messagesService.edit(dto.messageId, userId, { content: dto.content });
+    const message = await this.messagesService.edit(dto.messageId, userId, {
+      content: dto.content,
+    });
 
     await this.presenceService.updateActivity(userId);
     return { success: true, message };
@@ -287,7 +284,10 @@ export class ChatGateway
     const userId = socket.user.externalUserId;
     const isParticipant = await this.conversationsService.isParticipant(dto.conversationId, userId);
     if (!isParticipant) {
-      throw new WsException({ code: 'FORBIDDEN', message: 'Not a participant in this conversation' });
+      throw new WsException({
+        code: 'FORBIDDEN',
+        message: 'Not a participant in this conversation',
+      });
     }
 
     await this.presenceService.setTyping(dto.conversationId, userId);
@@ -326,7 +326,10 @@ export class ChatGateway
     const userId = socket.user.externalUserId;
     const isParticipant = await this.conversationsService.isParticipant(dto.conversationId, userId);
     if (!isParticipant) {
-      throw new WsException({ code: 'FORBIDDEN', message: 'Not a participant in this conversation' });
+      throw new WsException({
+        code: 'FORBIDDEN',
+        message: 'Not a participant in this conversation',
+      });
     }
 
     await this.presenceService.setRecording(dto.conversationId, userId);
@@ -369,9 +372,15 @@ export class ChatGateway
     @MessageBody() data: { conversationId: string },
   ) {
     const userId = socket.user.externalUserId;
-    const isParticipant = await this.conversationsService.isParticipant(data.conversationId, userId);
+    const isParticipant = await this.conversationsService.isParticipant(
+      data.conversationId,
+      userId,
+    );
     if (!isParticipant) {
-      throw new WsException({ code: 'FORBIDDEN', message: 'Not a participant in this conversation' });
+      throw new WsException({
+        code: 'FORBIDDEN',
+        message: 'Not a participant in this conversation',
+      });
     }
 
     await this.roomService.joinConversationRoom(socket, data.conversationId);
@@ -393,9 +402,15 @@ export class ChatGateway
     @MessageBody() data: { conversationId: string; lastMessageId: string },
   ) {
     const userId = socket.user.externalUserId;
-    const isParticipant = await this.conversationsService.isParticipant(data.conversationId, userId);
+    const isParticipant = await this.conversationsService.isParticipant(
+      data.conversationId,
+      userId,
+    );
     if (!isParticipant) {
-      throw new WsException({ code: 'FORBIDDEN', message: 'Not a participant in this conversation' });
+      throw new WsException({
+        code: 'FORBIDDEN',
+        message: 'Not a participant in this conversation',
+      });
     }
 
     const result = await this.messagesService.findByConversation(
@@ -515,38 +530,31 @@ export class ChatGateway
     return null;
   }
 
-  private async broadcastUserOnline(socket: AuthenticatedSocket): Promise<void> {
+  private broadcastUserOnline(socket: AuthenticatedSocket): void {
     const userId = socket.user.externalUserId;
     const conversationIds = socket.user.conversationIds;
 
-    await Promise.all(
-      conversationIds.map((conversationId) =>
-        this.emitToConversation(conversationId, 'user:online', {
-          userId,
-          conversationId,
-          timestamp: new Date().toISOString(),
-        }),
-      ),
-    );
+    for (const conversationId of conversationIds) {
+      this.emitToConversation(conversationId, 'user:online', {
+        userId,
+        conversationId,
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
-  private async broadcastUserOffline(
-    socket: AuthenticatedSocket,
-    lastSeen?: Date,
-  ): Promise<void> {
+  private broadcastUserOffline(socket: AuthenticatedSocket, lastSeen?: Date): void {
     const userId = socket.user.externalUserId;
     const conversationIds = socket.user.conversationIds;
 
-    await Promise.all(
-      conversationIds.map((conversationId) =>
-        this.emitToConversation(conversationId, 'user:offline', {
-          userId,
-          conversationId,
-          lastSeen: lastSeen ? lastSeen.toISOString() : undefined,
-          timestamp: new Date().toISOString(),
-        }),
-      ),
-    );
+    for (const conversationId of conversationIds) {
+      this.emitToConversation(conversationId, 'user:offline', {
+        userId,
+        conversationId,
+        lastSeen: lastSeen ? lastSeen.toISOString() : undefined,
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
   onModuleDestroy(): void {

@@ -65,8 +65,7 @@ export class ReadReceiptsService {
     conversationId: string,
     userId: string,
     upToMessageId?: string,
-  ): Promise<{ markedCount: number }>
-  {
+  ): Promise<{ markedCount: number }> {
     const isParticipant = await this.conversationsService.isParticipant(conversationId, userId);
     if (!isParticipant) {
       throw new ForbiddenException('Not a participant in this conversation');

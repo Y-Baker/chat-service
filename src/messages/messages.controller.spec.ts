@@ -52,7 +52,10 @@ describe('MessagesController', () => {
 
   it('lists messages with membership check', async () => {
     conversationsService.findByIdForUser.mockResolvedValue({});
-    messagesService.findByConversation.mockResolvedValue({ data: [], pagination: { hasMore: false } });
+    messagesService.findByConversation.mockResolvedValue({
+      data: [],
+      pagination: { hasMore: false },
+    });
 
     const result = await controller.list(
       { externalUserId: 'user-1', claims: {} } as any,
@@ -92,11 +95,9 @@ describe('MessagesController', () => {
     const message = makeMessage();
     messagesService.edit.mockResolvedValue(message);
 
-    const result = await controller.edit(
-      { externalUserId: 'user-1', claims: {} } as any,
-      'msg-1',
-      { content: 'new' } as any,
-    );
+    const result = await controller.edit({ externalUserId: 'user-1', claims: {} } as any, 'msg-1', {
+      content: 'new',
+    } as any);
 
     expect(messagesService.edit).toHaveBeenCalledWith('msg-1', 'user-1', expect.anything());
     expect(result).toBe(message);

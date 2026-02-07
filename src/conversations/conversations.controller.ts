@@ -60,10 +60,7 @@ export class ConversationsController {
 
   @Get()
   @ApiOperation({ summary: 'List conversations for current user' })
-  async list(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query() query: QueryConversationsDto,
-  ) {
+  async list(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryConversationsDto) {
     const result = await this.conversationsService.findAllForUser(user.externalUserId, query);
     const data = await this.attachProfilesToConversations(result.data);
 
@@ -175,13 +172,9 @@ export class ConversationsController {
     });
 
     const profiles = await this.usersService.findManyByExternalIds([...ids]);
-    const profileMap = new Map(
-      profiles.map((profile) => [profile.externalUserId, profile]),
-    );
+    const profileMap = new Map(profiles.map((profile) => [profile.externalUserId, profile]));
 
-    return conversations.map((conversation) =>
-      this.attachProfiles(conversation, profileMap),
-    );
+    return conversations.map((conversation) => this.attachProfiles(conversation, profileMap));
   }
 
   private async attachProfilesToConversation(
@@ -190,9 +183,7 @@ export class ConversationsController {
     const plain = this.toPlainConversation(conversation);
     const ids = plain.participants.map((participant) => participant.externalUserId);
     const profiles = await this.usersService.findManyByExternalIds(ids);
-    const profileMap = new Map(
-      profiles.map((profile) => [profile.externalUserId, profile]),
-    );
+    const profileMap = new Map(profiles.map((profile) => [profile.externalUserId, profile]));
 
     return this.attachProfiles(conversation, profileMap);
   }
