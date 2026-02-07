@@ -80,7 +80,7 @@ export class ConversationsService {
       name: dto.type === ConversationType.Group ? dto.name : undefined,
       participants,
       participantIds,
-      metadata: dto.metadata,
+      metadata: dto.metadata ?? {},
       createdBy: userId,
     };
 
@@ -97,14 +97,14 @@ export class ConversationsService {
         createdBy: created.createdBy,
         createdAt: created.createdAt ?? new Date(),
       });
-      return created.toObject();
+      return created.toObject({ getters: true, virtuals: false });
     } catch (error) {
       if (this.isDuplicateKeyError(error) && dto.type === ConversationType.Direct) {
         const otherUserId = participantIds.find((id) => id !== userId);
         if (!otherUserId) {
           throw new BadRequestException('Direct conversation requires another participant');
         }
-        return this.findOrCreateDirect(userId, otherUserId);
+        return this.findOrCreateDirect(userId, otherUserId, dto.metadata);
       }
       throw error;
     }
@@ -196,7 +196,11 @@ export class ConversationsService {
     return conversation;
   }
 
-  async findOrCreateDirect(userId: string, otherUserId: string): Promise<Conversation> {
+  async findOrCreateDirect(
+    userId: string,
+    otherUserId: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<Conversation> {
     if (userId === otherUserId) {
       throw new BadRequestException('Direct conversation requires two distinct users');
     }
@@ -208,7 +212,13 @@ export class ConversationsService {
       .exec();
 
     if (existing) {
-      return existing;
+      // Update metadata if provided
+      if (metadata !== undefined) {
+        existing.metadata = metadata;
+        await existing.save();
+        return existing.toObject({ getters: true, virtuals: false });
+      }
+      return existing.toObject({ getters: true, virtuals: false });
     }
 
     const joinedAt = new Date();
@@ -223,6 +233,7 @@ export class ConversationsService {
       type: ConversationType.Direct,
       participants,
       participantIds,
+      metadata: metadata ?? {},
       createdBy: userId,
     });
 
@@ -234,7 +245,7 @@ export class ConversationsService {
       createdAt: created.createdAt ?? new Date(),
     });
 
-    return created.toObject();
+    return created.toObject({ getters: true, virtuals: false });
   }
 
   async addParticipant(

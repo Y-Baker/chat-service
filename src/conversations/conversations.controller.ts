@@ -219,12 +219,14 @@ export class ConversationsController {
     return {
       ...plain,
       participants,
+      metadata: plain.metadata ?? {},
     } as ConversationWithProfiles;
   }
 
   private toPlainConversation(conversation: Conversation): Conversation {
-    return typeof (conversation as any).toObject === 'function'
-      ? (conversation as any).toObject()
-      : conversation;
+    if (typeof (conversation as any).toObject === 'function') {
+      return (conversation as any).toObject({ getters: true, virtuals: false });
+    }
+    return conversation;
   }
 }

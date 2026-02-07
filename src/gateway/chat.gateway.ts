@@ -194,6 +194,7 @@ export class ChatGateway
       content: dto.content,
       attachments: dto.attachments,
       replyTo: dto.replyTo,
+      metadata: dto.metadata,
     });
 
     await this.presenceService.updateActivity(userId);

@@ -290,7 +290,7 @@ Connect with:
 
 | Event | Payload | Response | Description |
 |-------|---------|----------|-------------|
-| message:send | { conversationId, content, attachments?, replyTo? } | { success, message } | Send message |
+| message:send | { conversationId, content, attachments?, replyTo?, metadata? } | { success, message } | Send message |
 | message:edit | { messageId, content } | { success, message } | Edit message |
 | message:delete | { messageId } | { success } | Delete message |
 | messages:sync | { conversationId, lastMessageId } | { success, messages } | Sync missed messages |

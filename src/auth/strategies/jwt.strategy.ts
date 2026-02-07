@@ -20,7 +20,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: JwtPayload): AuthenticatedUser {
-    const externalUserId = (payload as { externalUserId?: string }).externalUserId ?? payload.sub;
+    const externalUserId =
+      (payload as { externalUserId?: string }).externalUserId ??
+      payload.sub ??
+      (payload as { id?: string }).id;
 
     if (!externalUserId) {
       throw new UnauthorizedException('Missing external user id');

@@ -4,6 +4,7 @@ import {
   IsArray,
   IsMongoId,
   IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -42,4 +43,8 @@ export class WsSendMessageDto {
   @IsOptional()
   @IsMongoId()
   replyTo?: string;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 }
