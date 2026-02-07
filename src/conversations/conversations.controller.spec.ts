@@ -67,9 +67,12 @@ describe('ConversationsController', () => {
       { externalUserId: 'user-2', displayName: 'User 2', avatarUrl: 'b' },
     ]);
 
-    const result = await controller.list({ externalUserId: 'user-1', claims: {} } as any, {
-      limit: 10,
-    } as any);
+    const result = await controller.list(
+      { externalUserId: 'user-1', claims: {} } as any,
+      {
+        limit: 10,
+      } as any,
+    );
 
     expect(result.pagination.hasMore).toBe(false);
     expect(result.data[0].participants[1].profile).toEqual({

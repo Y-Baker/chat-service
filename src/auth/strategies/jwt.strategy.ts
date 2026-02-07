@@ -7,6 +7,17 @@ import {
   JwtPayload,
 } from '../../common/interfaces/authenticated-user.interface';
 
+export function extractExternalUserId(payload: JwtPayload): string | null {
+  const externalUserIdCandidate = payload.externalUserId ?? payload.sub ?? payload.id;
+
+  if (typeof externalUserIdCandidate !== 'string') {
+    return null;
+  }
+
+  const externalUserId = externalUserIdCandidate.trim();
+  return externalUserId.length > 0 ? externalUserId : null;
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
@@ -20,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: JwtPayload): AuthenticatedUser {
-    const externalUserId = (payload as { externalUserId?: string }).externalUserId ?? payload.sub;
+    const externalUserId = extractExternalUserId(payload);
 
     if (!externalUserId) {
       throw new UnauthorizedException('Missing external user id');

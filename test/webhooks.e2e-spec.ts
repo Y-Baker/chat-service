@@ -253,10 +253,7 @@ describe('Webhooks (e2e)', () => {
     expect(eventType).toBe('message.created');
     expect(eventId).toBeTruthy();
 
-    const expected = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(delivery.body)
-      .digest('hex');
+    const expected = crypto.createHmac('sha256', webhookSecret).update(delivery.body).digest('hex');
 
     expect(signature).toBe(`sha256=${expected}`);
 

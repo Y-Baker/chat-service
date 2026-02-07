@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Put,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -60,7 +53,10 @@ export class ReadReceiptsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId') conversationId: string,
   ) {
-    const unreadCount = await this.readReceiptsService.getUnreadCount(conversationId, user.externalUserId);
+    const unreadCount = await this.readReceiptsService.getUnreadCount(
+      conversationId,
+      user.externalUserId,
+    );
     return { conversationId, unreadCount };
   }
 }

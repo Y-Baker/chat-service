@@ -452,14 +452,16 @@ This is the main gateway class. Use `@WebSocketGateway` decorator.
 #### @SubscribeMessage('message:send')
 **Parameters:** socket (AuthenticatedSocket), dto (WsSendMessageDto)
 
+**DTO fields:** `conversationId`, `content`, `attachments?`, `replyTo?`, `metadata?`
+
 **Steps:**
 1. Get user ID from socket
 2. Verify user is participant in conversation via ConversationsService
 3. If not participant, throw WsException with FORBIDDEN
-4. Create message via MessagesService
+4. Create message via MessagesService (includes metadata if provided)
 5. Get conversation room name
-6. Broadcast 'message:new' to room with full message object
-7. Return acknowledgment: `{ success: true, message }`
+6. Broadcast 'message:new' to room with full message object (includes metadata field)
+7. Return acknowledgment: `{ success: true, message }` (message includes metadata)
 
 #### @SubscribeMessage('message:edit')
 **Parameters:** socket (AuthenticatedSocket), dto (WsEditMessageDto)
@@ -867,7 +869,7 @@ This ensures REST-created messages also trigger WebSocket events.
 
 | Event | Payload | Acknowledgment | Description |
 |-------|---------|----------------|-------------|
-| `message:send` | `{ conversationId, content, attachments?, replyTo? }` | `{ success, message }` | Send new message |
+| `message:send` | `{ conversationId, content, attachments?, replyTo?, metadata? }` | `{ success, message }` | Send new message |
 | `message:edit` | `{ messageId, content }` | `{ success, message }` | Edit existing message |
 | `message:delete` | `{ messageId }` | `{ success }` | Delete message |
 | `messages:sync` | `{ conversationId, lastMessageId }` | `{ success, messages }` | Sync missed messages |
@@ -881,13 +883,13 @@ This ensures REST-created messages also trigger WebSocket events.
 |-------|---------|-------------|
 | `connected` | `{ userId, socketId, rooms, timestamp }` | Connection established |
 | `error` | `{ code, message, timestamp, originalEvent? }` | Error occurred |
-| `message:new` | `{ ...messageObject }` | New message in conversation |
+| `message:new` | `{ ...messageObject }` | New message in conversation (includes `metadata` field) |
 | `message:updated` | `{ messageId, content, isEdited, updatedAt }` | Message was edited |
 | `message:deleted` | `{ messageId, conversationId, deletedAt }` | Message was deleted |
 | `user:online` | `{ userId, conversationId, timestamp }` | User came online |
 | `user:offline` | `{ userId, conversationId, timestamp }` | User went offline |
-| `conversation:new` | `{ ...conversationObject }` | New conversation created |
-| `conversation:joined` | `{ ...conversationObject }` | Added to existing conversation |
+| `conversation:new` | `{ ...conversationObject }` | New conversation created (includes `metadata` field) |
+| `conversation:joined` | `{ ...conversationObject }` | Added to existing conversation (includes `metadata` field) |
 | `conversation:removed` | `{ conversationId }` | Removed from conversation |
 | `participant:added` | `{ conversationId, userId, timestamp }` | New participant in conversation |
 | `participant:removed` | `{ conversationId, userId, timestamp }` | Participant left/removed |

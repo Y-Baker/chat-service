@@ -1,9 +1,4 @@
-import {
-  ArgumentsHost,
-  Catch,
-  HttpException,
-  Logger,
-} from '@nestjs/common';
+import { ArgumentsHost, Catch, HttpException, Logger } from '@nestjs/common';
 import { BaseWsExceptionFilter, WsException } from '@nestjs/websockets';
 
 interface ErrorPayload {

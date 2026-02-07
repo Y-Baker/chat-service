@@ -18,11 +18,7 @@ import { ConversationsService } from '../conversations/conversations.service';
 import { EditMessageDto } from './dto/edit-message.dto';
 import { QueryMessagesDto } from './dto/query-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
-import {
-  MessagesService,
-  MessageWithSender,
-  MessageWithSenderAndReply,
-} from './messages.service';
+import { MessagesService, MessageWithSender, MessageWithSenderAndReply } from './messages.service';
 
 @ApiTags('messages')
 @ApiBearerAuth()
@@ -77,7 +73,10 @@ export class MessagesController {
       user.externalUserId,
     );
 
-    const populated = await this.messagesService.populateMessageWithSender(message, user.externalUserId);
+    const populated = await this.messagesService.populateMessageWithSender(
+      message,
+      user.externalUserId,
+    );
     return this.messagesService.populateReplyPreview(populated);
   }
 

@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -28,7 +20,11 @@ export class ReactionsController {
     @Param('messageId') messageId: string,
     @Body() dto: AddReactionDto,
   ) {
-    const reactions = await this.reactionsService.addReaction(messageId, user.externalUserId, dto.emoji);
+    const reactions = await this.reactionsService.addReaction(
+      messageId,
+      user.externalUserId,
+      dto.emoji,
+    );
     return { success: true, reactions };
   }
 
@@ -39,7 +35,11 @@ export class ReactionsController {
     @Param('messageId') messageId: string,
     @Param('emoji') emoji: string,
   ) {
-    const reactions = await this.reactionsService.removeReaction(messageId, user.externalUserId, emoji);
+    const reactions = await this.reactionsService.removeReaction(
+      messageId,
+      user.externalUserId,
+      emoji,
+    );
     return { success: true, reactions };
   }
 

@@ -76,6 +76,52 @@ describe('UsersService', () => {
     expect(result).toBe(mockUsers);
   });
 
+  it('sync omits optional fields when they are not provided', async () => {
+    const model = createModelMock();
+    const mockUser = { externalUserId: 'user-1' } as UserProfile;
+
+    model.findOneAndUpdate.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(mockUser),
+    });
+
+    const service = new UsersService(model as never);
+
+    await service.sync({
+      externalUserId: 'user-1',
+      displayName: 'User One',
+    });
+
+    const update = model.findOneAndUpdate.mock.calls[0][1];
+    expect(update.$set).toMatchObject({
+      displayName: 'User One',
+      isActive: true,
+      syncedAt: new Date('2025-01-01T00:00:00.000Z'),
+    });
+    expect(update.$set).not.toHaveProperty('avatarUrl');
+    expect(update.$set).not.toHaveProperty('metadata');
+  });
+
+  it('syncBatch only sets metadata for users that provide it', async () => {
+    const model = createModelMock();
+    model.bulkWrite.mockResolvedValue({});
+    model.find.mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    });
+
+    const service = new UsersService(model as never);
+
+    await service.syncBatch({
+      users: [
+        { externalUserId: 'user-1', displayName: 'User One' },
+        { externalUserId: 'user-2', displayName: 'User Two', metadata: { role: 'admin' } },
+      ],
+    });
+
+    const operations = model.bulkWrite.mock.calls[0][0];
+    expect(operations[0].updateOne.update.$set).not.toHaveProperty('metadata');
+    expect(operations[1].updateOne.update.$set.metadata).toEqual({ role: 'admin' });
+  });
+
   it('findByExternalId filters inactive users', async () => {
     const model = createModelMock();
     const mockUser = { externalUserId: 'user-1' } as UserProfile;

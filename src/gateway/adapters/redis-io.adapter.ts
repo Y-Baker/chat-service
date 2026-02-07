@@ -9,7 +9,10 @@ export class RedisIoAdapter extends IoAdapter {
   private subClient?: RedisClientType;
   private adapterConstructor?: ReturnType<typeof createAdapter>;
 
-  constructor(private readonly app: INestApplication, private readonly redisUrl: string) {
+  constructor(
+    private readonly app: INestApplication,
+    private readonly redisUrl: string,
+  ) {
     super(app);
   }
 
@@ -34,10 +37,15 @@ export class RedisIoAdapter extends IoAdapter {
 
   async close(): Promise<void> {
     try {
-      await this.subClient?.quit();
-      await this.pubClient?.quit();
-      this.subClient?.disconnect();
-      this.pubClient?.disconnect();
+      if (this.subClient) {
+        await this.subClient.quit();
+        await this.subClient.disconnect();
+      }
+
+      if (this.pubClient) {
+        await this.pubClient.quit();
+        await this.pubClient.disconnect();
+      }
     } catch (error) {
       this.logger.warn('Failed to close Redis adapter clients', error as Error);
     }

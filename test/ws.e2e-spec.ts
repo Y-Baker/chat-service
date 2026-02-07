@@ -99,12 +99,7 @@ describe('WebSocket gateway (e2e)', () => {
       });
     });
 
-  const emitWithAck = <T>(
-    socket: Socket,
-    event: string,
-    payload: unknown,
-    timeoutMs = 5000,
-  ) =>
+  const emitWithAck = <T>(socket: Socket, event: string, payload: unknown, timeoutMs = 5000) =>
     new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error(`Timed out waiting for ack on ${event}`));

@@ -8,6 +8,12 @@ Provide JWT via:
 - `query.token`
 - `Authorization: Bearer <token>` header
 
+WebSocket user id claim resolution order:
+1. `externalUserId`
+2. `sub`
+
+The resolved value must be a non-empty string.
+
 ## Connection Example
 ```javascript
 import { io } from 'socket.io-client';

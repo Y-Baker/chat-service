@@ -6,6 +6,13 @@ Base URL (development): `http://localhost:3000/api`
 All public endpoints require `Authorization: Bearer <jwt>`.
 Internal endpoints require `X-Internal-Secret: <secret>`.
 
+For REST authentication, the service resolves user identity from JWT claims in this order:
+1. `externalUserId`
+2. `sub`
+3. `id`
+
+The selected value must be a non-empty string after trimming whitespace; otherwise the request is rejected with `401 Unauthorized`.
+
 ## Error Format
 ```json
 {
@@ -27,12 +34,27 @@ Sync a user profile from the master service.
 
 Body:
 ```json
-{ "externalUserId": "user_1", "displayName": "User One", "avatarUrl": "https://..." }
+{ 
+  "externalUserId": "user_1", 
+  "displayName": "User One", 
+  "avatarUrl": "https://...",
+  "metadata": { "role": "admin", "department": "engineering" }
+}
 ```
+
+Response includes `metadata` field.
 
 ### POST /users/sync/batch
 ```json
-{ "users": [ { "externalUserId": "user_1", "displayName": "User One" } ] }
+{ 
+  "users": [ 
+    { 
+      "externalUserId": "user_1", 
+      "displayName": "User One",
+      "metadata": { "role": "admin" }
+    } 
+  ] 
+}
 ```
 
 ### GET /users/:externalUserId
@@ -45,8 +67,14 @@ Body:
 ### POST /conversations
 Create direct or group conversation.
 ```json
-{ "type": "direct", "participantIds": ["user_1","user_2"] }
+{ 
+  "type": "direct", 
+  "participantIds": ["user_1","user_2"],
+  "metadata": { "source": "app", "priority": "high" }
+}
 ```
+
+Response includes `metadata` field.
 
 ### GET /conversations
 Query params: `limit`, `cursor`, `type`.
@@ -73,8 +101,14 @@ Optional query: `mode=leave|delete`.
 
 ### POST /conversations/:conversationId/messages
 ```json
-{ "content": "Hello", "attachments": [{"externalFileId":"file_1"}] }
+{ 
+  "content": "Hello", 
+  "attachments": [{"externalFileId":"file_1"}],
+  "metadata": { "clientId": "abc123", "platform": "web" }
+}
 ```
+
+Response includes `metadata` field.
 
 ### GET /conversations/:conversationId/messages
 Query params: `limit`, `before`, `after`, `includeDeleted`.
