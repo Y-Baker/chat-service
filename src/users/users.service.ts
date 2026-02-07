@@ -14,18 +14,13 @@ export class UsersService {
 
   async sync(dto: SyncUserDto): Promise<UserProfile> {
     const syncedAt = new Date();
+    const setPayload = this.buildSyncSetPayload(dto, syncedAt);
 
     return this.userProfileModel
       .findOneAndUpdate(
         { externalUserId: dto.externalUserId },
         {
-          $set: {
-            displayName: dto.displayName,
-            avatarUrl: dto.avatarUrl,
-            metadata: dto.metadata,
-            isActive: true,
-            syncedAt,
-          },
+          $set: setPayload,
         },
         { new: true, upsert: true },
       )
@@ -42,13 +37,7 @@ export class UsersService {
       updateOne: {
         filter: { externalUserId: user.externalUserId },
         update: {
-          $set: {
-            displayName: user.displayName,
-            avatarUrl: user.avatarUrl,
-            metadata: user.metadata,
-            isActive: true,
-            syncedAt,
-          },
+          $set: this.buildSyncSetPayload(user, syncedAt),
         },
         upsert: true,
       },
@@ -58,9 +47,7 @@ export class UsersService {
 
     const externalUserIds = dto.users.map((user) => user.externalUserId);
 
-    return this.userProfileModel
-      .find({ externalUserId: { $in: externalUserIds } })
-      .exec();
+    return this.userProfileModel.find({ externalUserId: { $in: externalUserIds } }).exec();
   }
 
   async findByExternalId(externalUserId: string): Promise<UserProfile | null> {
@@ -79,15 +66,29 @@ export class UsersService {
 
   async remove(externalUserId: string): Promise<UserProfile | null> {
     return this.userProfileModel
-      .findOneAndUpdate(
-        { externalUserId },
-        { $set: { isActive: false } },
-        { new: true },
-      )
+      .findOneAndUpdate({ externalUserId }, { $set: { isActive: false } }, { new: true })
       .exec();
   }
 
   async hardRemove(externalUserId: string): Promise<void> {
     await this.userProfileModel.deleteOne({ externalUserId }).exec();
+  }
+
+  private buildSyncSetPayload(user: SyncUserDto, syncedAt: Date): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+      displayName: user.displayName,
+      isActive: true,
+      syncedAt,
+    };
+
+    if (user.avatarUrl !== undefined) {
+      payload.avatarUrl = user.avatarUrl;
+    }
+
+    if (user.metadata !== undefined) {
+      payload.metadata = user.metadata;
+    }
+
+    return payload;
   }
 }
