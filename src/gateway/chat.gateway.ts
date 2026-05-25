@@ -10,9 +10,8 @@ import {
   WebSocketServer,
   WsException,
 } from '@nestjs/websockets';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { Server } from 'socket.io';
+import { JwtVerificationService } from '../auth/services/jwt-verification.service';
 import { ConnectionService } from './services/connection.service';
 import { RoomService } from './services/room.service';
 import { MessagesService } from '../messages/messages.service';
@@ -76,8 +75,7 @@ export class ChatGateway
   private shuttingDown = false;
 
   constructor(
-    private readonly configService: ConfigService,
-    private readonly jwtService: JwtService,
+    private readonly jwtVerificationService: JwtVerificationService,
     private readonly connectionService: ConnectionService,
     private readonly roomService: RoomService,
     private readonly messagesService: MessagesService,
@@ -94,7 +92,7 @@ export class ChatGateway
   }
 
   async handleConnection(@ConnectedSocket() socket: AuthenticatedSocket): Promise<void> {
-    const user = this.authenticateSocket(socket);
+    const user = await this.authenticateSocket(socket);
     if (!user) {
       socket.emit('error', {
         code: 'UNAUTHORIZED',
@@ -491,13 +489,12 @@ export class ChatGateway
     });
   }
 
-  private authenticateSocket(socket: AuthenticatedSocket): SocketUserData | null {
+  private async authenticateSocket(socket: AuthenticatedSocket): Promise<SocketUserData | null> {
     const token = this.extractToken(socket);
     if (!token) return null;
 
     try {
-      const secret = this.configService.getOrThrow<string>('auth.jwtSecret');
-      const payload = this.jwtService.verify<JwtPayload>(token, { secret });
+      const payload = await this.jwtVerificationService.verifyToken<JwtPayload>(token);
       const externalUserId = payload.externalUserId ?? payload.sub;
       if (!externalUserId) return null;
 

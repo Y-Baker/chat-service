@@ -6,6 +6,7 @@ import {
   AuthenticatedUser,
   JwtPayload,
 } from '../../common/interfaces/authenticated-user.interface';
+import { JwtVerificationService } from '../services/jwt-verification.service';
 
 export function extractExternalUserId(payload: JwtPayload): string | null {
   const externalUserIdCandidate = payload.externalUserId ?? payload.sub ?? payload.id;
@@ -20,12 +21,20 @@ export function extractExternalUserId(payload: JwtPayload): string | null {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly jwtVerificationService: JwtVerificationService,
+  ) {
     const issuer = configService.get<string>('auth.jwtIssuer');
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: configService.getOrThrow<string>('auth.jwtSecret'),
+      secretOrKeyProvider: (_request, rawJwtToken, done) => {
+        void this.jwtVerificationService
+          .resolveVerificationSecret(rawJwtToken)
+          .then((secret) => done(null, secret))
+          .catch((error) => done(error as Error, null));
+      },
       ...(issuer ? { issuer } : {}),
     });
   }

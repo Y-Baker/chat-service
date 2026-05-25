@@ -1,6 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
+import { JwtVerificationService } from '../services/jwt-verification.service';
 
 describe('JwtStrategy', () => {
   const makeConfigService = (issuer?: string) =>
@@ -11,11 +12,15 @@ describe('JwtStrategy', () => {
         }
         return undefined;
       }),
-      getOrThrow: jest.fn().mockReturnValue('test-secret'),
     }) as unknown as ConfigService;
 
+  const makeVerificationService = () =>
+    ({
+      resolveVerificationSecret: jest.fn().mockResolvedValue('test-secret'),
+    }) as unknown as JwtVerificationService;
+
   it('returns externalUserId from payload.externalUserId', () => {
-    const strategy = new JwtStrategy(makeConfigService('issuer'));
+    const strategy = new JwtStrategy(makeConfigService('issuer'), makeVerificationService());
 
     const result = strategy.validate({ externalUserId: 'user-1' });
 
@@ -24,7 +29,7 @@ describe('JwtStrategy', () => {
   });
 
   it('falls back to payload.sub when externalUserId is missing', () => {
-    const strategy = new JwtStrategy(makeConfigService());
+    const strategy = new JwtStrategy(makeConfigService(), makeVerificationService());
 
     const result = strategy.validate({ sub: 'user-2' });
 
@@ -32,7 +37,7 @@ describe('JwtStrategy', () => {
   });
 
   it('falls back to payload.id when externalUserId and sub are missing', () => {
-    const strategy = new JwtStrategy(makeConfigService());
+    const strategy = new JwtStrategy(makeConfigService(), makeVerificationService());
 
     const result = strategy.validate({ id: 'user-3' });
 
@@ -40,14 +45,14 @@ describe('JwtStrategy', () => {
   });
 
   it('throws when external user id candidate is not a non-empty string', () => {
-    const strategy = new JwtStrategy(makeConfigService());
+    const strategy = new JwtStrategy(makeConfigService(), makeVerificationService());
 
     expect(() => strategy.validate({ id: 123 })).toThrow(UnauthorizedException);
     expect(() => strategy.validate({ externalUserId: '   ' })).toThrow(UnauthorizedException);
   });
 
   it('throws when no externalUserId or sub is present', () => {
-    const strategy = new JwtStrategy(makeConfigService());
+    const strategy = new JwtStrategy(makeConfigService(), makeVerificationService());
 
     expect(() => strategy.validate({})).toThrow(UnauthorizedException);
   });

@@ -1,8 +1,7 @@
 import { CanActivate, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { WsException } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
+import { JwtVerificationService } from '../../auth/services/jwt-verification.service';
 import { SocketUserData } from '../interfaces/socket-user-data.interface';
 
 interface JwtPayload {
@@ -12,12 +11,9 @@ interface JwtPayload {
 
 @Injectable()
 export class WsAuthGuard implements CanActivate {
-  constructor(
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly jwtVerificationService: JwtVerificationService) {}
 
-  canActivate(context: any): boolean {
+  async canActivate(context: any): Promise<boolean> {
     const client: Socket = context.switchToWs().getClient();
     const token = this.extractToken(client);
 
@@ -26,8 +22,7 @@ export class WsAuthGuard implements CanActivate {
     }
 
     try {
-      const secret = this.configService.getOrThrow<string>('auth.jwtSecret');
-      const payload = this.jwtService.verify<JwtPayload>(token, { secret });
+      const payload = await this.jwtVerificationService.verifyToken<JwtPayload>(token);
       const externalUserId = payload.externalUserId ?? payload.sub;
 
       if (!externalUserId) {

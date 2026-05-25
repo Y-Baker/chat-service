@@ -10,8 +10,12 @@ export default () => ({
     url: process.env.REDIS_URL,
   },
   auth: {
+    jwtValidationMode: process.env.AUTH_JWT_VALIDATION_MODE ?? 'symmetric',
     jwtSecret: process.env.AUTH_JWT_SECRET,
     jwtIssuer: process.env.AUTH_JWT_ISSUER,
+    jwtAudience: process.env.AUTH_JWT_AUDIENCE,
+    jwtJwksUrl: process.env.AUTH_JWT_JWKS_URL,
+    jwtJwksCacheTtlMs: parseInt(process.env.AUTH_JWT_JWKS_CACHE_TTL_MS ?? `${5 * 60 * 1000}`, 10),
   },
   internal: {
     apiSecret: process.env.INTERNAL_API_SECRET,

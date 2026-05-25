@@ -1,6 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
+import { AuthModule } from '../auth/auth.module';
 import { ChatGateway } from './chat.gateway';
 import { ConnectionService } from './services/connection.service';
 import { RoomService } from './services/room.service';
@@ -14,15 +13,7 @@ import { WebhooksModule } from '../webhooks/webhooks.module';
 
 @Module({
   imports: [
-    JwtModule.registerAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.getOrThrow<string>('auth.jwtSecret'),
-        signOptions: {
-          issuer: configService.get<string>('auth.jwtIssuer') ?? 'master-service',
-        },
-      }),
-    }),
+    AuthModule,
     forwardRef(() => MessagesModule),
     forwardRef(() => ConversationsModule),
     forwardRef(() => UsersModule),
