@@ -5,6 +5,7 @@ Base URL (development): `http://localhost:3000/api`
 ## Authentication
 All public endpoints require `Authorization: Bearer <jwt>`.
 Internal endpoints require `X-Internal-Secret: <secret>`.
+Private endpoints can require both JWT and service token headers.
 
 For REST authentication, the service resolves user identity from JWT claims in this order:
 1. `externalUserId`

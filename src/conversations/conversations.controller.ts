@@ -16,7 +16,7 @@ import { CreateConversationDto } from './dto/create-conversation.dto';
 import { QueryConversationsDto } from './dto/query-conversations.dto';
 import { AddParticipantDto } from './dto/add-participant.dto';
 import { UpdateParticipantRoleDto } from './dto/update-participant-role.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Authorize } from '../auth/decorators/authorize.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { UsersService } from '../users/users.service';
@@ -41,7 +41,7 @@ type ConversationWithProfiles = Omit<Conversation, 'participants'> & {
 @ApiTags('conversations')
 @ApiBearerAuth()
 @Controller('api/conversations')
-@UseGuards(JwtAuthGuard)
+@Authorize()
 export class ConversationsController {
   constructor(
     private readonly conversationsService: ConversationsService,

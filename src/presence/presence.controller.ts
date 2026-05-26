@@ -1,16 +1,15 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Authorize } from '../auth/decorators/authorize.decorator';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { ConversationsService } from '../conversations/conversations.service';
 import { GetBatchPresenceDto } from './dto/get-batch-presence.dto';
 import { PresenceService } from './presence.service';
 
 @ApiTags('presence')
-@ApiBearerAuth()
 @Controller('api')
-@UseGuards(JwtAuthGuard)
+@Authorize()
 export class PresenceController {
   constructor(
     private readonly presenceService: PresenceService,

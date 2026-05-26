@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Authorize } from '../auth/decorators/authorize.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { AddReactionDto } from './dto/add-reaction.dto';
@@ -9,7 +9,7 @@ import { ReactionsService } from './reactions.service';
 @ApiTags('reactions')
 @ApiBearerAuth()
 @Controller('api/messages')
-@UseGuards(JwtAuthGuard)
+@Authorize()
 export class ReactionsController {
   constructor(private readonly reactionsService: ReactionsService) {}
 

@@ -8,7 +8,7 @@ export class InternalApiGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
-    const headerValue = request.headers['x-internal-secret'];
+    const headerValue = request.headers['x-service-token'] ?? request.headers['x-internal-secret'];
     const providedSecret = Array.isArray(headerValue) ? headerValue[0] : headerValue;
     const expectedSecret = this.configService.getOrThrow<string>('internal.apiSecret');
 

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Authorize } from '../auth/decorators/authorize.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { MarkConversationReadDto } from './dto/mark-conversation-read.dto';
@@ -9,7 +9,7 @@ import { ReadReceiptsService } from './read-receipts.service';
 @ApiTags('read-receipts')
 @ApiBearerAuth()
 @Controller('api')
-@UseGuards(JwtAuthGuard)
+@Authorize()
 export class ReadReceiptsController {
   constructor(private readonly readReceiptsService: ReadReceiptsService) {}
 

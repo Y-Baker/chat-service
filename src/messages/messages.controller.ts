@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Authorize } from '../auth/decorators/authorize.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { ConversationsService } from '../conversations/conversations.service';
@@ -23,7 +23,7 @@ import { MessagesService, MessageWithSender, MessageWithSenderAndReply } from '.
 @ApiTags('messages')
 @ApiBearerAuth()
 @Controller('api')
-@UseGuards(JwtAuthGuard)
+@Authorize()
 export class MessagesController {
   constructor(
     private readonly messagesService: MessagesService,

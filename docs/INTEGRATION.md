@@ -25,6 +25,8 @@ If you use external MongoDB/Redis, omit the profile and set `MONGODB_URI` and `R
 - `AUTH_JWT_ISSUER` should match the token issuer.
 - `AUTH_JWT_AUDIENCE` should match the token audience when one is issued.
 - Set `INTERNAL_API_SECRET` for server-to-server calls.
+- Private endpoints require both JWT and service token headers.
+- Preferred service token header: `X-Service-Token: <INTERNAL_API_SECRET>`.
 - Include `externalUserId` as a non-empty string in JWT payloads (recommended for both REST and WebSocket).
 - REST compatibility fallback: if `externalUserId` is missing, REST accepts `sub`, then `id` (must still be a non-empty string).
 - WebSocket authentication currently resolves user id from `externalUserId`, then `sub`.
