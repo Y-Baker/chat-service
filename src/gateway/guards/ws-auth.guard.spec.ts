@@ -23,11 +23,7 @@ describe('WsAuthGuard', () => {
   it.each([
     ['auth token', { auth: { token: 'token-auth' } }, 'token-auth'],
     ['query token', { query: { token: 'token-query' } }, 'token-query'],
-    [
-      'authorization header',
-      { headers: { authorization: 'Bearer token-header' } },
-      'token-header',
-    ],
+    ['authorization header', { headers: { authorization: 'Bearer token-header' } }, 'token-header'],
   ])('accepts token from %s', async (_label, handshake, token) => {
     const jwtVerificationService = makeJwtVerificationService();
     (jwtVerificationService.verifyToken as jest.Mock).mockResolvedValue({ sub: 'user-1' });
