@@ -3,7 +3,9 @@ import { ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { InternalApiGuard } from '../guards/internal-api.guard';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
-export function Authorize(options: { jwt?: boolean; internal?: boolean } = {}): MethodDecorator & ClassDecorator {
+export function Authorize(
+  options: { jwt?: boolean; internal?: boolean } = {},
+): MethodDecorator & ClassDecorator {
   const { jwt = true, internal = false } = options;
   const decorators: Array<MethodDecorator | ClassDecorator> = [];
   const guardClasses: Array<any> = [];

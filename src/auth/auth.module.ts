@@ -8,7 +8,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { RedisModule } from '../redis/redis.module';
 
 @Module({
-  imports: [PassportModule.register({ defaultStrategy: 'jwt' }), JwtModule.register({}), RedisModule],
+  imports: [
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.register({}),
+    RedisModule,
+  ],
   providers: [JwtStrategy, InternalApiGuard, JwtAuthGuard, JwtVerificationService],
   exports: [InternalApiGuard, JwtAuthGuard, JwtVerificationService],
 })

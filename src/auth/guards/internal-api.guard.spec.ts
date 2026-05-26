@@ -4,10 +4,7 @@ import { ExecutionContext } from '@nestjs/common/interfaces/features/execution-c
 import { InternalApiGuard } from './internal-api.guard';
 
 describe('InternalApiGuard', () => {
-  const makeContext = (
-    serviceToken?: string | string[],
-    internalSecret?: string | string[],
-  ) =>
+  const makeContext = (serviceToken?: string | string[], internalSecret?: string | string[]) =>
     ({
       switchToHttp: () => ({
         getRequest: () => ({

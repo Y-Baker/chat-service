@@ -1,14 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { InternalApiGuard } from '../auth/guards/internal-api.guard';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Authorize } from '../auth/decorators/authorize.decorator';
 import { BatchSyncUsersDto } from './dto/batch-sync-users.dto';
 import { SyncUserDto } from './dto/sync-user.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('users (internal)')
-@ApiHeader({ name: 'X-Internal-Secret', description: 'Internal API secret' })
 @Controller('api/users')
-@UseGuards(InternalApiGuard)
+@Authorize({ jwt: false, internal: true })
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
